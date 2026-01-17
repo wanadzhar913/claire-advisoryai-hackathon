@@ -1,0 +1,99 @@
+services:
+  # frontend:
+  #   build:
+  #     context: ./apps/frontend
+  #   environment:
+  #     - API_URL=${API_URL}
+  #   networks:
+  #     - claire
+  #   restart: always
+
+  api:
+    build:
+      context: ./apps/backend
+    ports:
+      - 8000:8000
+    environment:
+      - BACKEND_PROJECT_NAME=${BACKEND_PROJECT_NAME}
+      - BACKEND_API_V1_STR=${BACKEND_API_V1_STR}
+      - BACKEND_API_VERSION=${BACKEND_API_VERSION}
+      - BACKEND_API_ENVIRONMENT=${BACKEND_API_ENVIRONMENT}
+      - BACKEND_API_DESCRIPTION=${BACKEND_API_DESCRIPTION}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
+      - LOG_LEVEL=${LOG_LEVEL}
+    depends_on:
+      - db
+      - minio
+      - createbuckets
+    networks:
+      - claire
+    restart: always
+
+  db:
+    build:
+      context: ./postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+    networks:
+      - claire
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z-cpuv1
+    command: ["server", "--console-address", ":9001", "/data"]
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio_data:/data
+    ports:
+      - 9000:9000
+      - 9001:9001
+    restart: always
+    networks:
+      - claire
+
+  createbuckets:
+    image: minio/mc:RELEASE.2025-07-16T15-35-03Z-cpuv1
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "/create-bucket.sh"]
+    volumes:
+      - ./scripts/create-bucket.sh:/create-bucket.sh
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
+    restart: on-failure
+    networks:
+      - claire
+
+
+networks:
+  claire:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:
