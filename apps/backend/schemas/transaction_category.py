@@ -10,6 +10,7 @@ class FinancialTransactionCategory(str, Enum):
         category.value  # Returns "food_and_dining_out"
     """
     INCOME = "income"
+    TRANSFER = "cash_transfer"
     HOUSING = "housing"
     TRANSPORTATION = "transportation"
     FOOD_AND_DINING_OUT = "food_and_dining_out"
@@ -18,7 +19,9 @@ class FinancialTransactionCategory(str, Enum):
     EDUCATION = "education"
     UTILITIES = "utilities"
     GROCERIES = "groceries"
-    SUBSCRIPTIONS_AND_MEMBERSHIPS = "subscriptions_and_memberships"
+    INVESTMENTS_AND_SAVINGS = "investments_and_savings"
+    TECHNOLOGY_AND_ELECTRONICS = "technology_and_electronics"
+    SPORT_AND_ACTIVITY = "sport_and_activity"
     OTHER = "other"
 
 
@@ -33,6 +36,8 @@ TransactionCategoryLiteral = Literal[
     "education",
     "utilities",
     "groceries",
-    "subscriptions_and_memberships",
+    "invenstments & savings",
+    "technology_and_electronics",
+    "sport_and_activity",
     "other"
 ]
