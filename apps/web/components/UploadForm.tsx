@@ -115,7 +115,7 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
   }
 
   return (
-    <Card className="w-full max-w-lg border shadow-lg bg-background">
+    <Card className="w-full border shadow-lg bg-background">
       <CardHeader>
         <div className="flex items-center justify-between">
             <CardTitle className="text-xl font-semibold">File Upload</CardTitle>
