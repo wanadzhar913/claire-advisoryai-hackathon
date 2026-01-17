@@ -131,6 +131,37 @@ class DatabaseService:
             user = session.exec(statement).first()
             return user
 
+    async def get_user_by_clerk_id(self, clerk_id: str) -> Optional[User]:
+        """Get a user by Clerk ID.
+
+        Args:
+            clerk_id: The Clerk user ID to retrieve
+
+        Returns:
+            Optional[User]: The user if found, None otherwise
+        """
+        with Session(self.engine) as session:
+            statement = select(User).where(User.clerk_id == clerk_id)
+            user = session.exec(statement).first()
+            return user
+
+    async def create_user_from_clerk(self, clerk_id: str, email: str) -> User:
+        """Create a new user from Clerk authentication.
+
+        Args:
+            clerk_id: The Clerk user ID
+            email: User's email address from Clerk
+
+        Returns:
+            User: The created user
+        """
+        with Session(self.engine) as session:
+            user = User(clerk_id=clerk_id, email=email, hashed_password=None)
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+            return user
+
     async def delete_user_by_email(self, email: str) -> bool:
         """Delete a user by email.
 

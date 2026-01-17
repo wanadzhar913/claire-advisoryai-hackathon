@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAuth } from "@clerk/nextjs"
 import { CloudUpload, FileText, Trash2, Loader2, AlertCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -19,6 +20,7 @@ interface UploadFormProps {
 }
 
 export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
+  const { getToken } = useAuth()
   const [file, setFile] = React.useState<File | null>(null)
   const [uploading, setUploading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -93,11 +95,18 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
     setError(null)
 
     try {
+      const token = await getToken()
       const formData = new FormData()
       formData.append("file", file)
 
+      const headers: HeadersInit = {}
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`
+      }
+
       const response = await fetch(`${apiUrl}/upload`, {
         method: "POST",
+        headers,
         body: formData,
       })
 

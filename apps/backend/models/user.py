@@ -3,6 +3,7 @@
 from typing import (
     TYPE_CHECKING,
     List,
+    Optional,
 )
 
 import bcrypt
@@ -24,17 +25,20 @@ class User(BaseModel, table=True):
 
     Attributes:
         id: The primary key
+        clerk_id: Clerk user ID (unique identifier from Clerk auth)
         email: User's email (unique)
-        hashed_password: Bcrypt hashed password
+        hashed_password: Bcrypt hashed password (optional when using Clerk)
         created_at: When the user was created
         sessions: Relationship to user's chat sessions
         uploads: Relationship to user's uploads
+        goals: Relationship to user's goals
     """
     __tablename__ = "app_users"
 
     id: int = Field(default=None, primary_key=True)
+    clerk_id: Optional[str] = Field(default=None, unique=True, index=True)
     email: str = Field(unique=True, index=True)
-    hashed_password: str
+    hashed_password: Optional[str] = Field(default=None)
     sessions: List["Session"] = Relationship(back_populates="user")
     uploads: List["UserUpload"] = Relationship(back_populates="user")
     goals: List["Goal"] = Relationship(back_populates="user")

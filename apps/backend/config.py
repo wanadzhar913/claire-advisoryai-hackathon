@@ -52,6 +52,11 @@ class AppSettings(BaseSettings):
     # Logging
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = 'INFO'
 
+    # Clerk Authentication settings
+    CLERK_SECRET_KEY: str
+    CLERK_PUBLISHABLE_KEY: str
+    CLERK_JWKS_URL: str  
+
 @lru_cache
 def get_settings() -> AppSettings:
     """Load settings once and cache globally."""

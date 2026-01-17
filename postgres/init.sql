@@ -3,8 +3,10 @@
 
 CREATE TABLE IF NOT EXISTS app_users (
     id SERIAL PRIMARY KEY,
+    clerk_id TEXT UNIQUE,
     email TEXT UNIQUE NOT NULL,
-    hashed_password TEXT NOT NULL,
+    -- Nullable when using Clerk authentication (backend creates users with hashed_password = NULL)
+    hashed_password TEXT,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -82,6 +84,7 @@ CREATE INDEX IF NOT EXISTS idx_goal_user_created_at ON user_goal(user_id, create
 
 -- Create indexes for frequently queried columns
 CREATE INDEX IF NOT EXISTS idx_user_email ON app_users(email);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_clerk_id ON app_users(clerk_id);
 CREATE INDEX IF NOT EXISTS idx_session_user_id ON session(user_id);
 CREATE INDEX IF NOT EXISTS idx_banking_transaction_user_id ON statement_banking_transaction(user_id);
 CREATE INDEX IF NOT EXISTS idx_banking_transaction_file_id ON statement_banking_transaction(file_id);

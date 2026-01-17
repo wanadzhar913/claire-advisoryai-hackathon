@@ -6,21 +6,14 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from backend.core.auth import get_current_user
 from backend.models.goal import Goal
+from backend.models.user import User
 from backend.services.db.postgres_connector import database_service
 
 router = APIRouter()
 
 BannerKey = Literal["banner_1", "banner_2", "banner_3", "banner_4"]
-
-
-# TODO: Implement proper authentication dependency
-# For now, using a simple user_email query parameter (same pattern as file_uploads.py)
-async def get_current_user_id(user_email: str = Query(...)) -> int:
-    user = await database_service.get_user_by_email(user_email)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return user.id
 
 
 class GoalCreateRequest(BaseModel):
@@ -59,8 +52,9 @@ class GoalResponse(BaseModel):
 @router.post("", response_model=GoalResponse, tags=["Goals"])
 async def create_goal(
     payload: GoalCreateRequest,
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> GoalResponse:
+    user_id = current_user.id
     if payload.current_saved > payload.target_amount:
         raise HTTPException(status_code=400, detail="current_saved cannot exceed target_amount")
 
@@ -90,12 +84,13 @@ async def create_goal(
 
 @router.get("", response_model=List[GoalResponse], tags=["Goals"])
 async def list_goals(
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
     limit: Optional[int] = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     order_by: str = Query(default="created_at"),
     order_desc: bool = Query(default=True),
 ) -> List[GoalResponse]:
+    user_id = current_user.id
     goals = database_service.get_user_goals(
         user_id=user_id,
         limit=limit,
@@ -122,8 +117,9 @@ async def list_goals(
 @router.get("/{goal_id}", response_model=GoalResponse, tags=["Goals"])
 async def get_goal(
     goal_id: str,
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> GoalResponse:
+    user_id = current_user.id
     goal = database_service.get_goal(user_id=user_id, goal_id=goal_id)
     if not goal:
         raise HTTPException(status_code=404, detail="Goal not found")
@@ -145,8 +141,9 @@ async def get_goal(
 async def update_goal(
     goal_id: str,
     payload: GoalUpdateRequest,
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> GoalResponse:
+    user_id = current_user.id
     # Enforce current_saved <= target_amount when both are provided or when one changes
     existing = database_service.get_goal(user_id=user_id, goal_id=goal_id)
     if not existing:
@@ -183,8 +180,9 @@ async def update_goal(
 @router.delete("/{goal_id}", tags=["Goals"])
 async def delete_goal(
     goal_id: str,
-    user_id: int = Depends(get_current_user_id),
+    current_user: User = Depends(get_current_user),
 ) -> dict:
+    user_id = current_user.id
     deleted = database_service.delete_goal(user_id=user_id, goal_id=goal_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Goal not found")

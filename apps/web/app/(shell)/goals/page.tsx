@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Image from "next/image"
 import { LayoutGrid, List as ListIcon, Plus, Target, Check } from "lucide-react"
 
@@ -18,7 +18,8 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { mockGoals, formatMYR, type Goal } from "@/lib/goals-data"
+import { useApi } from "@/hooks/use-api"
+import { formatMYR, type Goal, type GoalStatus } from "@/lib/goals-data"
 import { cn } from "@/lib/utils"
 
 const BANNER_OPTIONS = [
@@ -28,10 +29,135 @@ const BANNER_OPTIONS = [
   "/banners/banner_4.jpg",
 ]
 
+type BackendGoal = {
+  id: string
+  user_id: number
+  name: string
+  target_amount: number | string
+  current_saved: number | string
+  target_year: number
+  target_month: number
+  banner_key: string
+  created_at?: string | null
+}
+
+type BannerKey = "banner_1" | "banner_2" | "banner_3" | "banner_4"
+
+function bannerKeyFromImageUrl(imageUrl: string): BannerKey {
+  const filename = imageUrl.split("/").pop() ?? ""
+  const key = filename.replace(".jpg", "") as BannerKey
+  if (key === "banner_1" || key === "banner_2" || key === "banner_3" || key === "banner_4") return key
+  return "banner_1"
+}
+
+function imageUrlFromBannerKey(bannerKey: string): string | undefined {
+  if (bannerKey === "banner_1" || bannerKey === "banner_2" || bannerKey === "banner_3" || bannerKey === "banner_4") {
+    return `/banners/${bannerKey}.jpg`
+  }
+  return undefined
+}
+
+function deadlineFromYearMonth(year: number, month: number): string {
+  const date = new Date(year, Math.max(0, month - 1), 1)
+  return date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
+}
+
+function statusFromProgress(progress: number): GoalStatus {
+  if (!Number.isFinite(progress) || progress <= 0.25) return "behind"
+  return "on-track"
+}
+
+function nextActionFromStatus(status: GoalStatus): string {
+  return status === "behind" ? "Consider increasing your monthly savings toward this goal." : "Keep going — you’re on track."
+}
+
+function mapBackendGoalToUi(goal: BackendGoal): Goal {
+  const target = Number(goal.target_amount)
+  const current = Number(goal.current_saved)
+  const progress = target > 0 ? current / target : 0
+  const status = statusFromProgress(progress)
+
+  return {
+    id: goal.id,
+    name: goal.name,
+    target,
+    current,
+    deadline: deadlineFromYearMonth(goal.target_year, goal.target_month),
+    status,
+    nextAction: nextActionFromStatus(status),
+    imageUrl: imageUrlFromBannerKey(goal.banner_key),
+  }
+}
+
 export default function GoalsPage() {
   const [view, setView] = useState<"grid" | "list">("grid")
-  const [goals, setGoals] = useState<Goal[]>(mockGoals)
+  const [goals, setGoals] = useState<Goal[]>([])
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+
+  const { get, post, isLoaded, isSignedIn } = useApi()
+  const [isLoadingGoals, setIsLoadingGoals] = useState(false)
+  const [goalsError, setGoalsError] = useState<string | null>(null)
+
+  const canLoadGoals = useMemo(() => isLoaded && isSignedIn, [isLoaded, isSignedIn])
+  const showEmptyState = useMemo(
+    () => canLoadGoals && !isLoadingGoals && !goalsError && goals.length === 0,
+    [canLoadGoals, goals.length, goalsError, isLoadingGoals]
+  )
+
+  useEffect(() => {
+    if (!isLoaded) return
+    if (!isSignedIn) {
+      setGoals([])
+      setGoalsError(null)
+      return
+    }
+
+    let isCancelled = false
+
+    async function loadGoals() {
+      setIsLoadingGoals(true)
+      setGoalsError(null)
+      try {
+        const result = await get<BackendGoal[]>("/api/v1/goals")
+        if (isCancelled) return
+        setGoals(result.map(mapBackendGoalToUi))
+      } catch (e) {
+        if (isCancelled) return
+        const message = e instanceof Error ? e.message : "Failed to load goals"
+        setGoalsError(message)
+      } finally {
+        if (!isCancelled) setIsLoadingGoals(false)
+      }
+    }
+
+    void loadGoals()
+
+    return () => {
+      isCancelled = true
+    }
+  }, [get, isLoaded, isSignedIn])
+
+  async function createGoalFromUi(newGoal: Goal, bannerKey: BannerKey, targetDate: string) {
+    const now = new Date()
+    const [yearStr, monthStr] = targetDate.split("-")
+    const parsedYear = Number(yearStr)
+    const parsedMonth = Number(monthStr)
+    const targetYear = Number.isFinite(parsedYear) && parsedYear > 1900 ? parsedYear : now.getFullYear()
+    const targetMonth =
+      Number.isFinite(parsedMonth) && parsedMonth >= 1 && parsedMonth <= 12 ? parsedMonth : now.getMonth() + 1
+
+    const created = await post<BackendGoal>("/api/v1/goals", {
+      name: newGoal.name,
+      target_amount: newGoal.target,
+      current_saved: newGoal.current,
+      target_year: targetYear,
+      target_month: targetMonth,
+      banner_key: bannerKey,
+    })
+
+    const createdUi = mapBackendGoalToUi(created)
+    setGoals((prev) => [createdUi, ...prev])
+  }
 
   return (
     <div className="space-y-8">
@@ -70,8 +196,49 @@ export default function GoalsPage() {
         </div>
       </div>
 
+      {!isLoaded && (
+        <p className="text-sm text-muted-foreground">Loading…</p>
+      )}
+
+      {isLoaded && !isSignedIn && (
+        <p className="text-sm text-muted-foreground">Sign in to load your goals.</p>
+      )}
+
+      {canLoadGoals && isLoadingGoals && (
+        <p className="text-sm text-muted-foreground">Fetching goals…</p>
+      )}
+
+      {canLoadGoals && goalsError && (
+        <p className="text-sm text-red-600">Failed to load goals: {goalsError}</p>
+      )}
+
       {view === "list" ? (
-        <Goals goals={goals} onAction={() => console.log("Goal action clicked")} />
+        <Goals goals={goals} onAction={() => setIsAddModalOpen(true)} />
+      ) : showEmptyState ? (
+        <Card className="border-dashed bg-muted/20">
+          <CardContent className="py-14">
+            <div className="mx-auto max-w-md text-center space-y-4">
+              <div className="mx-auto h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                <Target className="h-6 w-6" />
+              </div>
+              <div className="space-y-1.5">
+                <h2 className="text-lg font-semibold tracking-tight">No goals yet</h2>
+                <p className="text-sm text-muted-foreground">
+                  Create your first goal to start tracking progress and stay on target.
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <Button onClick={() => setIsAddModalOpen(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create a goal
+                </Button>
+                <Badge variant="outline" className="text-xs">
+                  Tip: start with an emergency fund
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {goals.map((goal) => (
@@ -83,8 +250,8 @@ export default function GoalsPage() {
       <AddGoalDialog
         open={isAddModalOpen}
         onOpenChange={setIsAddModalOpen}
-        onAddGoal={(newGoal) => {
-          setGoals((prev) => [...prev, newGoal])
+        onAddGoal={async (newGoal, bannerKey, targetDate) => {
+          await createGoalFromUi(newGoal, bannerKey, targetDate)
           setIsAddModalOpen(false)
         }}
       />
@@ -160,7 +327,7 @@ function GoalCard({ goal }: { goal: Goal }) {
 interface AddGoalDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onAddGoal: (goal: Goal) => void
+  onAddGoal: (goal: Goal, bannerKey: BannerKey, targetDate: string) => Promise<void>
 }
 
 function AddGoalDialog({ open, onOpenChange, onAddGoal }: AddGoalDialogProps) {
@@ -184,14 +351,11 @@ function AddGoalDialog({ open, onOpenChange, onAddGoal }: AddGoalDialogProps) {
     const target = parseFloat(targetAmount) || 0
     const current = parseFloat(currentSaved) || 0
 
-    // Format the date as "MMM YYYY"
+    // Format the date as "MMM YYYY" (UI only). Backend uses a default if not provided.
     let formattedDeadline: string | null = null
     if (targetDate) {
       const date = new Date(targetDate + "-01") // Add day to make valid date
-      formattedDeadline = date.toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      })
+      formattedDeadline = date.toLocaleDateString("en-US", { month: "short", year: "numeric" })
     }
 
     const newGoal: Goal = {
@@ -205,8 +369,10 @@ function AddGoalDialog({ open, onOpenChange, onAddGoal }: AddGoalDialogProps) {
       imageUrl: selectedBanner,
     }
 
-    onAddGoal(newGoal)
-    resetForm()
+    const bannerKey = bannerKeyFromImageUrl(selectedBanner)
+    void onAddGoal(newGoal, bannerKey, targetDate).finally(() => {
+      resetForm()
+    })
   }
 
   const handleOpenChange = (newOpen: boolean) => {

@@ -3,18 +3,16 @@
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { UploadForm } from "@/components/UploadForm"
+import { getApiUrl } from "@/lib/api"
 
 export default function UploadPage() {
   const router = useRouter()
   const [phase, setPhase] = React.useState<"idle" | "processing">("idle")
   const [fileName, setFileName] = React.useState("")
 
-  const getApiUrl = () => process.env.NEXT_PUBLIC_API_URL ?? ""
-
   const handleSuccess = (name: string) => {
     setFileName(name)
     setPhase("processing")
-    // Redirect to dashboard after showing processing message briefly
     setTimeout(() => {
       router.push("/dashboard")
     }, 2000)

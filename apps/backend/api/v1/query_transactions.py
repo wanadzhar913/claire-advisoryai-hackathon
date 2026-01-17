@@ -4,9 +4,11 @@ from datetime import date
 from decimal import Decimal
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from backend.core.auth import get_current_user
+from backend.models.user import User
 from backend.schemas.transaction_category import FinancialTransactionCategory
 from backend.services.db.postgres_connector import database_service
 
@@ -39,7 +41,7 @@ class BankingTransactionResponse(BaseModel):
 
 @router.get("/transactions", tags=["Transactions"], response_model=List[BankingTransactionResponse])
 async def query_transactions(
-    user_id: Optional[int] = Query(default=None, description="Filter by user ID"),
+    current_user: User = Depends(get_current_user),
     file_id: Optional[str] = Query(default=None, description="Filter by file ID (user upload file ID)"),
     start_date: Optional[date] = Query(default=None, description="Filter transactions from this date onwards (inclusive)"),
     end_date: Optional[date] = Query(default=None, description="Filter transactions up to this date (inclusive)"),
@@ -60,7 +62,7 @@ async def query_transactions(
     """Query banking transactions with various filters.
     
     This endpoint allows filtering banking transactions by multiple criteria including:
-    - User and file filters
+    - File filters
     - Date ranges
     - Amount ranges
     - Transaction type, category, merchant name
@@ -68,7 +70,7 @@ async def query_transactions(
     - Currency and description search
     
     Args:
-        user_id: Filter by user ID
+        current_user: Authenticated user (from Clerk JWT)
         file_id: Filter by file ID (user upload file ID)
         start_date: Filter transactions from this date onwards (inclusive)
         end_date: Filter transactions up to this date (inclusive)
@@ -92,6 +94,7 @@ async def query_transactions(
     Raises:
         HTTPException: If query fails
     """
+    user_id = current_user.id
     try:
         transactions = database_service.filter_banking_transactions(
             user_id=user_id,
@@ -145,7 +148,7 @@ async def query_transactions(
 
 @router.get("/transactions/subscriptions", tags=["Transactions"], response_model=List[BankingTransactionResponse])
 async def query_subscriptions(
-    user_id: Optional[int] = Query(default=None, description="Filter by user ID"),
+    current_user: User = Depends(get_current_user),
     file_id: Optional[str] = Query(default=None, description="Filter by file ID (user upload file ID)"),
     start_date: Optional[date] = Query(default=None, description="Filter transactions from this date onwards (inclusive)"),
     end_date: Optional[date] = Query(default=None, description="Filter transactions up to this date (inclusive)"),
@@ -168,7 +171,7 @@ async def query_subscriptions(
     All other filter parameters work the same as the general transactions endpoint.
     
     Args:
-        user_id: Filter by user ID
+        current_user: Authenticated user (from Clerk JWT)
         file_id: Filter by file ID (user upload file ID)
         start_date: Filter transactions from this date onwards (inclusive)
         end_date: Filter transactions up to this date (inclusive)
@@ -191,6 +194,7 @@ async def query_subscriptions(
     Raises:
         HTTPException: If query fails
     """
+    user_id = current_user.id
     try:
         transactions = database_service.filter_banking_transactions(
             user_id=user_id,
