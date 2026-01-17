@@ -49,7 +49,8 @@ class FinancialTextExtractor:
         file_path: str | Path, 
         file_content: bytes | None = None,
         file_mime_type: str | None = None,
-        user_upload_id: str | None = None
+        user_upload_id: str | None = None,
+        transaction_id: str | None = None
     ) -> List[Dict[str, Any]]:
         """
         Extract banking transactions from a file.
@@ -210,7 +211,8 @@ class FinancialTextExtractor:
     def _extract_structured_data(
         self, 
         text_content: str, 
-        user_upload_id: str | None = None
+        user_upload_id: str | None = None,
+        transaction_id: str | None = None
     ) -> List[Dict[str, Any]]:
         """
         Use OpenAI to extract structured banking transaction data from text.
@@ -297,7 +299,7 @@ Return a JSON object with a "transactions" key containing an array of transactio
             # Transform to match database schema
             structured_transactions = []
             for tx in transactions:
-                structured_tx = self._transform_transaction(tx, user_upload_id)
+                structured_tx = self._transform_transaction(tx, user_upload_id, transaction_id)
                 if structured_tx:
                     structured_transactions.append(structured_tx)
             
@@ -309,7 +311,8 @@ Return a JSON object with a "transactions" key containing an array of transactio
     def _transform_transaction(
         self, 
         transaction: Dict[str, Any], 
-        user_upload_id: str | None = None
+        user_upload_id: str | None = None,
+        transaction_id: str | None = None,
     ) -> Dict[str, Any] | None:
         """
         Transform extracted transaction to match database schema.
@@ -387,9 +390,6 @@ Return a JSON object with a "transactions" key containing an array of transactio
             
             currency = transaction.get('currency', 'MYR').strip().upper() or 'MYR'
             
-            # Generate unique ID
-            transaction_id = str(uuid.uuid4())
-            
             return {
                 'id': transaction_id,
                 'user_upload_id': user_upload_id or '',
@@ -454,7 +454,8 @@ def extract_banking_transactions(
     file_path: str | Path,
     file_content: bytes | None = None,
     file_mime_type: str | None = None,
-    user_upload_id: str | None = None
+    user_upload_id: str | None = None,
+    transaction_id: str | None = None
 ) -> List[Dict[str, Any]]:
     """
     Convenience function to extract banking transactions from a file.
@@ -473,16 +474,19 @@ def extract_banking_transactions(
         file_path=file_path,
         file_content=file_content,
         file_mime_type=file_mime_type,
-        user_upload_id=user_upload_id
+        user_upload_id=user_upload_id,
+        transaction_id=transaction_id
     )
 
 if __name__ == "__main__":
-    file_path = Path(__file__).parent.parent.parent.parent.parent / "datasets" / "banking_transactions" / "Bank Statement Example Final.pdf"
+    from pprint import pprint
+    transaction_id = str(uuid.uuid4())
+    
+    file_path = Path(__file__).parent.parent.parent.parent.parent / "datasets" / "banking_transactions" / "Bank-Statement-Template-4-TemplateLab.pdf"
     assert file_path.exists(), f"File with file path {file_path} does not exist"
 
     extractor = FinancialTextExtractor()
-    transactions = extractor.extract_from_file(
-        file_path=file_path,
-        user_upload_id="1234567890"
+    transactions = extractor._extract_from_pdf(
+        file_path=file_path
     )
-    print(transactions)
+    pprint(transactions)
