@@ -1,9 +1,11 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { UploadForm } from "@/components/UploadForm"
 
 export default function UploadPage() {
+  const router = useRouter()
   const [phase, setPhase] = React.useState<"idle" | "processing">("idle")
   const [fileName, setFileName] = React.useState("")
 
@@ -12,6 +14,10 @@ export default function UploadPage() {
   const handleSuccess = (name: string) => {
     setFileName(name)
     setPhase("processing")
+    // Redirect to dashboard after showing processing message briefly
+    setTimeout(() => {
+      router.push("/dashboard")
+    }, 2000)
   }
 
   return (
