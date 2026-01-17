@@ -83,7 +83,7 @@ export function Summary({ onClose, onViewDetails, className }: SummaryProps) {
         {/* Spending Patterns */}
         <section>
           <div className="flex items-center gap-2 mb-3">
-            <Lightbulb className="w-4 h-4 text-amber-500" />
+            <Lightbulb className="w-4 h-4 text-warning" />
             <h3 className="text-sm font-medium">Spending Insights</h3>
           </div>
           <div className="space-y-3">
@@ -120,7 +120,7 @@ export function Summary({ onClose, onViewDetails, className }: SummaryProps) {
               >
                 <AlertTriangle className={cn(
                   "w-4 h-4 shrink-0",
-                  alert.severity === "warning" ? "text-amber-500" : "text-blue-500"
+                  alert.severity === "warning" ? "text-warning" : "text-info"
                 )} />
                 <span className="text-muted-foreground">{alert.message}</span>
               </div>

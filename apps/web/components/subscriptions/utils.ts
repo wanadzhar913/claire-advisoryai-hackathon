@@ -19,11 +19,11 @@ export const getMonthlyEquivalent = (amount: number, frequency: string) => {
 export const getConfidenceColor = (confidence: string) => {
   switch (confidence) {
     case "high":
-      return "text-emerald-600 bg-emerald-50 border-emerald-200"
+      return "text-success-foreground bg-success/10 border-success/30"
     case "medium":
-      return "text-amber-600 bg-amber-50 border-amber-200"
+      return "text-warning-foreground bg-warning/10 border-warning/30"
     case "low":
-      return "text-rose-600 bg-rose-50 border-rose-200"
+      return "text-destructive bg-destructive/10 border-destructive/30"
     default:
       return "text-muted-foreground bg-muted"
   }
@@ -32,15 +32,15 @@ export const getConfidenceColor = (confidence: string) => {
 export const getFlagColor = (flag: string) => {
   switch (flag) {
     case "price increase":
-      return "bg-orange-100 text-orange-700 border-orange-200"
+      return "bg-warning/10 text-warning-foreground border-warning/30"
     case "possible duplicate":
-      return "bg-purple-100 text-purple-700 border-purple-200"
+      return "bg-info/10 text-info-foreground border-info/30"
     case "multiple charges":
-      return "bg-blue-100 text-blue-700 border-blue-200"
+      return "bg-info/10 text-info-foreground border-info/30"
     case "low confidence":
-      return "bg-rose-100 text-rose-700 border-rose-200"
+      return "bg-destructive/10 text-destructive border-destructive/30"
     case "review":
-      return "bg-amber-100 text-amber-700 border-amber-200"
+      return "bg-warning/10 text-warning-foreground border-warning/30"
     default:
       return "bg-muted text-muted-foreground"
   }

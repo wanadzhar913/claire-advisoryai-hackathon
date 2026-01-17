@@ -47,8 +47,8 @@ export function Goals({ onAction, goals: customGoals, className }: GoalsProps) {
               const statusLabel = goal.status === "behind" ? "Behind" : "On track"
               const statusClass =
                 goal.status === "behind"
-                  ? "bg-amber-100 text-amber-900 border-amber-200"
-                  : "bg-emerald-100 text-emerald-900 border-emerald-200"
+                  ? "bg-warning/10 text-warning-foreground border-warning/30"
+                  : "bg-success/10 text-success-foreground border-success/30"
 
               return (
                 <div key={goal.id} className="p-3 rounded-lg bg-muted/50 space-y-3">
@@ -74,7 +74,7 @@ export function Goals({ onAction, goals: customGoals, className }: GoalsProps) {
                       <div
                         className={cn(
                           "h-full rounded-full",
-                          goal.status === "behind" ? "bg-amber-500" : "bg-primary"
+                          goal.status === "behind" ? "bg-warning" : "bg-primary"
                         )}
                         style={{ width: `${Math.min(100, Math.max(0, progressPct))}%` }}
                       />

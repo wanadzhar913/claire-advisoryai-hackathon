@@ -14,6 +14,7 @@ import {
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
@@ -22,6 +23,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+import { ThemeToggle } from "@/components/ThemeToggle"
 
 const navigationItems = [
   {
@@ -94,6 +96,9 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <SidebarFooter className="border-t border-sidebar-border p-2">
+        <ThemeToggle className="w-full justify-start" variant="ghost" size="default" />
+      </SidebarFooter>
     </Sidebar>
   )
 }

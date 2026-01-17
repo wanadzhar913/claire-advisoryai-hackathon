@@ -143,8 +143,8 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
           className={cn(
             "relative flex flex-col items-center justify-center py-12 rounded-xl border-2 border-dashed transition-all duration-200 ease-in-out cursor-pointer",
             dragging
-              ? "border-blue-500 bg-blue-50/50"
-              : "border-blue-200 hover:border-blue-400 hover:bg-slate-50",
+              ? "border-primary bg-primary/10"
+              : "border-border hover:border-primary hover:bg-muted/50",
             uploading && "opacity-50 cursor-not-allowed",
             error && "border-destructive/50 bg-destructive/5"
           )}
@@ -159,12 +159,12 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
           />
           
           <div className="flex flex-col items-center text-center space-y-3">
-             <div className="p-3 bg-white rounded-full shadow-sm">
-                <CloudUpload className="w-8 h-8 text-blue-600" />
+             <div className="p-3 bg-card rounded-full shadow-sm">
+                <CloudUpload className="w-8 h-8 text-primary" />
              </div>
              <div className="space-y-1">
                 <p className="text-sm font-medium">
-                   <span className="text-blue-600">Click to upload</span> or drag and drop
+                   <span className="text-primary">Click to upload</span> or drag and drop
                 </p>
                 <p className="text-xs text-muted-foreground">
                    PDF (max 10MB)
@@ -182,10 +182,10 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
 
         {file && (
           <div className="space-y-3">
-             <div className="flex items-center justify-between p-3 border rounded-lg bg-background group hover:border-blue-200 transition-colors">
+             <div className="flex items-center justify-between p-3 border rounded-lg bg-background group hover:border-primary/50 transition-colors">
                 <div className="flex items-center gap-3 overflow-hidden">
-                   <div className="p-2 bg-red-100 rounded-lg shrink-0">
-                      <FileText className="w-5 h-5 text-red-600" />
+                   <div className="p-2 bg-destructive/10 rounded-lg shrink-0">
+                      <FileText className="w-5 h-5 text-destructive" />
                    </div>
                    <div className="flex flex-col min-w-0">
                       <span className="text-sm font-medium truncate pr-4">
@@ -199,7 +199,7 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
                 {!uploading && (
                    <button
                       onClick={clearFile}
-                      className="p-2 rounded-full hover:bg-red-50 text-muted-foreground hover:text-red-600 transition-colors"
+                      className="p-2 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
                    >
                       <Trash2 className="w-4 h-4" />
                    </button>

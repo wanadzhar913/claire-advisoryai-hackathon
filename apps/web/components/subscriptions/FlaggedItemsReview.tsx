@@ -36,9 +36,9 @@ export function FlaggedItemsReview({
   )
 
   return (
-    <div className={isMobile ? "" : "border-t p-6"}>
+      <div className={isMobile ? "" : "border-t p-6"}>
       <div className="flex items-center gap-2 mb-4">
-        <AlertCircle className="w-5 h-5 text-amber-600" />
+        <AlertCircle className="w-5 h-5 text-warning" />
         <h3 className="text-base font-semibold">Review Flagged Items</h3>
         <Badge variant="outline" className="ml-auto">
           {reviewedCount}/{flaggedCount}{isMobile ? "" : " reviewed"}
@@ -48,7 +48,7 @@ export function FlaggedItemsReview({
       {/* Progress bar */}
       <div className="w-full h-2 bg-muted rounded-full mb-4 overflow-hidden">
         <div
-          className="h-full bg-amber-500 transition-all duration-300"
+          className="h-full bg-warning transition-all duration-300"
           style={{ width: `${(reviewedCount / flaggedCount) * 100}%` }}
         />
       </div>
@@ -58,7 +58,7 @@ export function FlaggedItemsReview({
           <p className="text-sm text-muted-foreground mb-4">
             Is this a subscription?
           </p>
-          <Card className="border-amber-200 bg-amber-50/50">
+          <Card className="border-warning/30 bg-warning/10">
             <CardContent className="p-4">
               <div className={`flex items-start gap-3 ${isMobile ? "mb-4" : ""}`}>
                 <SubscriptionLogo
@@ -109,8 +109,8 @@ export function FlaggedItemsReview({
         </>
       ) : (
         <div className="text-center py-6">
-          <Check className="w-10 h-10 text-emerald-500 mx-auto mb-3" />
-          <p className="text-sm font-medium text-emerald-700">
+          <Check className="w-10 h-10 text-success mx-auto mb-3" />
+          <p className="text-sm font-medium text-success-foreground">
             All flagged items reviewed!
           </p>
           <p className="text-xs text-muted-foreground mt-1">
@@ -119,11 +119,11 @@ export function FlaggedItemsReview({
         </div>
       )}
 
-      <div className="mt-4 p-4 rounded-lg bg-linear-to-br from-emerald-50 to-teal-50 border border-emerald-100">
-        <p className="text-sm font-medium text-emerald-800">
+      <div className="mt-4 p-4 rounded-lg bg-success/10 border border-success/30">
+        <p className="text-sm font-medium text-success-foreground">
           Potential Savings
         </p>
-        <p className="text-xs text-emerald-600 mt-1">
+        <p className="text-xs text-success mt-1">
           Review flagged subscriptions to identify potential savings of up to{" "}
           <span className="font-semibold">
             {formatCurrency(potentialSavings)}

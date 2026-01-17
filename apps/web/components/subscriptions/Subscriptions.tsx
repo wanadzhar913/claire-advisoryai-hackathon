@@ -123,7 +123,7 @@ export function Subscriptions({ showFlaggedReview = true, className }: Subscript
             {flaggedCount > 0 && (
               <>
                 <span className="text-muted-foreground"> and </span>
-                <span className="font-semibold text-amber-600">{flaggedCount}</span>
+                <span className="font-semibold text-warning">{flaggedCount}</span>
                 <span className="text-muted-foreground"> need review.</span>
               </>
             )}
@@ -131,7 +131,7 @@ export function Subscriptions({ showFlaggedReview = true, className }: Subscript
           
           <p className="text-base">
             <span className="text-muted-foreground">You will end the month with </span>
-            <span className="font-semibold text-emerald-600">{formatCurrency(totalYearly)}</span>
+            <span className="font-semibold text-success">{formatCurrency(totalYearly)}</span>
           </p>
         </section>
 
@@ -242,11 +242,11 @@ export function Subscriptions({ showFlaggedReview = true, className }: Subscript
           {/* Potential Savings Message (Dashboard view) */}
           {subscriptions.length > 0 && !showFlaggedReview && flaggedCount > 0 && (
             <div className="border-t pt-6">
-              <div className="p-4 rounded-lg bg-linear-to-br from-emerald-50 to-teal-50 border border-emerald-100">
-                <p className="text-sm font-medium text-emerald-800 mb-1">
+              <div className="p-4 rounded-lg bg-success/10 border border-success/30">
+                <p className="text-sm font-medium text-success-foreground mb-1">
                   Potential Savings
                 </p>
-                <p className="text-xs text-emerald-600 mb-3">
+                <p className="text-xs text-success mb-3">
                   Review flagged subscriptions to identify potential savings of up to{" "}
                   <span className="font-semibold">
                     {formatCurrency(potentialSavings)}
@@ -329,11 +329,11 @@ export function Subscriptions({ showFlaggedReview = true, className }: Subscript
           {/* Potential Savings Message for Mobile (Dashboard view) */}
           {flaggedCount > 0 && !showFlaggedReview && (
             <div className="pt-6">
-              <div className="p-4 rounded-lg bg-linear-to-br from-emerald-50 to-teal-50 border border-emerald-100">
-                <p className="text-sm font-medium text-emerald-800 mb-1">
+              <div className="p-4 rounded-lg bg-success/10 border border-success/30">
+                <p className="text-sm font-medium text-success-foreground mb-1">
                   Potential Savings
                 </p>
-                <p className="text-xs text-emerald-600 mb-3">
+                <p className="text-xs text-success mb-3">
                   Review flagged subscriptions to identify potential savings of up to{" "}
                   <span className="font-semibold">
                     {formatCurrency(potentialSavings)}
