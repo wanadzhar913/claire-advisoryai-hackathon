@@ -1,0 +1,94 @@
+name: Deploy to AWS EC2
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  AWS_REGION: ap-southeast-5
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Get AWS account ID
+      id: aws-account
+      run: |
+        AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        echo "account_id=$AWS_ACCOUNT_ID" >> $GITHUB_OUTPUT
+        echo "ecr_registry=$AWS_ACCOUNT_ID.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com" >> $GITHUB_OUTPUT
+
+    - name: Create ECR repositories
+      run: |
+        aws ecr describe-repositories --repository-names claire-api --region ${{ env.AWS_REGION }} || \
+        aws ecr create-repository --repository-name claire-api --region ${{ env.AWS_REGION }}
+        aws ecr describe-repositories --repository-names claire-db --region ${{ env.AWS_REGION }} || \
+        aws ecr create-repository --repository-name claire-db --region ${{ env.AWS_REGION }}
+
+    - name: Build and push API image
+      run: |
+        docker build -t ${{ steps.aws-account.outputs.ecr_registry }}/claire-api:${{ github.sha }} ./apps/backend
+        docker tag ${{ steps.aws-account.outputs.ecr_registry }}/claire-api:${{ github.sha }} ${{ steps.aws-account.outputs.ecr_registry }}/claire-api:latest
+        docker push ${{ steps.aws-account.outputs.ecr_registry }}/claire-api:${{ github.sha }}
+        docker push ${{ steps.aws-account.outputs.ecr_registry }}/claire-api:latest
+
+    - name: Build and push DB image
+      run: |
+        docker build -t ${{ steps.aws-account.outputs.ecr_registry }}/claire-db:${{ github.sha }} ./postgres
+        docker tag ${{ steps.aws-account.outputs.ecr_registry }}/claire-db:${{ github.sha }} ${{ steps.aws-account.outputs.ecr_registry }}/claire-db:latest
+        docker push ${{ steps.aws-account.outputs.ecr_registry }}/claire-db:${{ github.sha }}
+        docker push ${{ steps.aws-account.outputs.ecr_registry }}/claire-db:latest
+
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+    - name: Copy files to EC2
+      run: |
+        scp -i ~/.ssh/deploy_key docker-compose.aws.yaml ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/claire/
+        scp -r -i ~/.ssh/deploy_key scripts ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:~/claire/
+
+    - name: Deploy to EC2
+      run: |
+        ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'DEPLOY_EOF'
+          set -e
+          cd ~/claire
+          
+          # Get ECR registry URL
+          AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+          AWS_REGION=${{ env.AWS_REGION }}
+          ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          
+          # Login to ECR
+          aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
+          
+          # Pull latest images
+          ECR_REGISTRY=${ECR_REGISTRY} docker compose -f docker-compose.aws.yaml --env-file .env pull
+          
+          # Stop old containers
+          ECR_REGISTRY=${ECR_REGISTRY} docker compose -f docker-compose.aws.yaml --env-file .env down
+          
+          # Start new containers
+          ECR_REGISTRY=${ECR_REGISTRY} docker compose -f docker-compose.aws.yaml --env-file .env up -d
+          
+          # Clean up old images
+          docker image prune -f
+        DEPLOY_EOF
