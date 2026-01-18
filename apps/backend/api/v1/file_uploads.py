@@ -1,6 +1,5 @@
 """File upload endpoints for handling user file uploads and processing."""
 
-import asyncio
 import uuid
 from datetime import date, datetime as dt
 from decimal import Decimal
@@ -27,16 +26,16 @@ minio_connector = get_minio_connector()
 
 @router.post("/upload", tags=["File Uploads"])
 async def upload_file(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     current_user: User = Depends(get_current_user),
     statement_type: str = Query(default="banking_transaction", regex="^(banking_transaction|receipt|invoice|other)$"),
     expense_month: Optional[int] = Query(default=None, ge=1, le=12),
     expense_year: Optional[int] = Query(default=None),
 ) -> dict:
-    """Upload a file and process it to extract banking transactions.
+    """Upload one or more files and process them to extract banking transactions.
     
     Args:
-        file: The file to upload
+    files: The files to upload
         current_user: Authenticated user (from Clerk JWT)
         statement_type: Type of statement (banking_transaction, receipt, invoice, other)
         expense_month: Month of the expense (1-12), defaults to current month
@@ -45,126 +44,136 @@ async def upload_file(
     Returns:
     - Dictionary with upload details and extracted transaction count
     """
+    MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10MB per file
+
     user_id = current_user.id
     try:
-        # Read file content
-        file_content = await file.read()
-        file_size = len(file_content)
-        
-        # Generate unique file ID
-        file_id = str(uuid.uuid4())
-        
-        # Determine file extension and MIME type
-        file_extension = Path(file.filename).suffix.lstrip('.') if file.filename else ''
-        file_mime_type = file.content_type or "application/octet-stream"
-        
         # Set default expense month/year if not provided
         if expense_month is None:
             expense_month = date.today().month
         if expense_year is None:
             expense_year = date.today().year
-        
-        # Upload file to MinIO
-        file_data_io = BytesIO(file_content)
-        upload_result = minio_connector.upload_file(
-            user_id=user_id,
-            document_id=file_id,
-            file_data=file_data_io,
-            file_name=file.filename or "unknown",
-            content_type=file_mime_type,
-            file_size=file_size
-        )
-        
-        # Create user upload record in database
-        user_upload = UserUpload(
-            file_id=file_id,
-            user_id=user_id,
-            file_name=file.filename or "unknown",
-            file_type=file_extension or "unknown",
-            file_size=file_size,
-            file_url=upload_result.get("file_url", ""),
-            file_mime_type=file_mime_type,
-            file_extension=file_extension,
-            statement_type=statement_type,
-            expense_month=expense_month,
-            expense_year=expense_year,
-        )
-        
-        created_upload = database_service.create_user_upload(user_upload)
-        
-        # Extract transactions if it's a banking transaction statement
-        transaction_count = 0
-        if statement_type == "banking_transaction":
-            try:
-                # Extract transactions using the financial text extractor
-                transactions_data = await extract_banking_transactions(
-                    file_path=None,  # file.filename or "unknown",
-                    file_content=file_content,
-                    file_mime_type=file_mime_type,
-                    user_upload_id=file_id
-                )
-                
-                # Transform to BankingTransaction models
-                banking_transactions = []
-                for idx, tx_data in enumerate(transactions_data):
-                    # Generate unique transaction ID
-                    tx_id = f"{file_id}_{idx}"
-                    
-                    # Parse date
-                    tx_date = dt.strptime(tx_data['transaction_date'], '%Y-%m-%d').date()
-                    
-                    # Create BankingTransaction model
-                    banking_tx = BankingTransaction(
-                        id=tx_id,
-                        user_id=user_id,
-                        file_id=file_id,
-                        transaction_date=tx_date,
-                        transaction_year=tx_data['transaction_year'],
-                        transaction_month=tx_data['transaction_month'],
-                        transaction_day=tx_data['transaction_day'],
-                        description=tx_data['description'],
-                        merchant_name=tx_data.get('merchant_name'),
-                        amount=Decimal(str(tx_data['amount'])),
-                        is_subscription=tx_data.get('is_subscription', False),
-                        transaction_type=tx_data['transaction_type'],
-                        balance=Decimal(str(tx_data['balance'])) if tx_data.get('balance') else None,
-                        reference_number=tx_data.get('reference_number'),
-                        transaction_code=tx_data.get('transaction_code'),
-                        category=tx_data.get('category'),
-                        currency=tx_data.get('currency', 'MYR'),
+
+        if not files:
+            raise HTTPException(status_code=400, detail="No files provided")
+
+        results = []
+        total_transactions_extracted = 0
+
+        for file in files:
+            if file.content_type != "application/pdf":
+                raise HTTPException(status_code=400, detail=f"Only PDF files are allowed. Got: {file.content_type} for {file.filename}")
+
+            # Read file content and validate size
+            file_content = await file.read()
+            file_size = len(file_content)
+            if file_size > MAX_FILE_SIZE_BYTES:
+                raise HTTPException(status_code=400, detail=f"File size must be less than 10MB. File '{file.filename}' is {file_size} bytes")
+
+            # Generate unique file ID
+            file_id = str(uuid.uuid4())
+
+            # Determine file extension and MIME type
+            file_extension = Path(file.filename).suffix.lstrip('.') if file.filename else ''
+            file_mime_type = file.content_type or "application/octet-stream"
+
+            # Upload file to MinIO
+            file_data_io = BytesIO(file_content)
+            upload_result = minio_connector.upload_file(
+                user_id=user_id,
+                document_id=file_id,
+                file_data=file_data_io,
+                file_name=file.filename or "unknown",
+                content_type=file_mime_type,
+                file_size=file_size
+            )
+
+            # Create user upload record in database
+            user_upload = UserUpload(
+                file_id=file_id,
+                user_id=user_id,
+                file_name=file.filename or "unknown",
+                file_type=file_extension or "unknown",
+                file_size=file_size,
+                file_url=upload_result.get("file_url", ""),
+                file_mime_type=file_mime_type,
+                file_extension=file_extension,
+                statement_type=statement_type,
+                expense_month=expense_month,
+                expense_year=expense_year,
+            )
+            database_service.create_user_upload(user_upload)
+
+            # Extract transactions if it's a banking transaction statement
+            transaction_count = 0
+            if statement_type == "banking_transaction":
+                try:
+                    transactions_data = await extract_banking_transactions(
+                        file_path=None,
+                        file_content=file_content,
+                        file_mime_type=file_mime_type,
+                        user_upload_id=file_id
                     )
-                    banking_transactions.append(banking_tx)
-                
-                # Bulk insert transactions
-                if banking_transactions:
-                    database_service.create_banking_transactions_bulk(banking_transactions)
-                    transaction_count = len(banking_transactions)
-                    
-                    # Trigger AI analysis after successful extraction
-                    try:
-                        transaction_analyzer.analyze(
+
+                    banking_transactions = []
+                    for idx, tx_data in enumerate(transactions_data):
+                        tx_id = f"{file_id}_{idx}"
+                        tx_date = dt.strptime(tx_data['transaction_date'], '%Y-%m-%d').date()
+
+                        banking_tx = BankingTransaction(
+                            id=tx_id,
                             user_id=user_id,
                             file_id=file_id,
-                            transactions=banking_transactions,
+                            transaction_date=tx_date,
+                            transaction_year=tx_data['transaction_year'],
+                            transaction_month=tx_data['transaction_month'],
+                            transaction_day=tx_data['transaction_day'],
+                            description=tx_data['description'],
+                            merchant_name=tx_data.get('merchant_name'),
+                            amount=Decimal(str(tx_data['amount'])),
+                            is_subscription=tx_data.get('is_subscription', False),
+                            transaction_type=tx_data['transaction_type'],
+                            balance=Decimal(str(tx_data['balance'])) if tx_data.get('balance') else None,
+                            reference_number=tx_data.get('reference_number'),
+                            transaction_code=tx_data.get('transaction_code'),
+                            category=tx_data.get('category'),
+                            currency=tx_data.get('currency', 'MYR'),
                         )
-                    except Exception as analysis_error:
-                        # Log error but don't fail the upload
-                        print(f"Error running AI analysis: {str(analysis_error)}")
-                    
-            except Exception as e:
-                # Log error but don't fail the upload
-                # In production, you might want to log this properly
-                print(f"Error extracting transactions: {str(e)}")
-        
+                        banking_transactions.append(banking_tx)
+
+                    if banking_transactions:
+                        database_service.create_banking_transactions_bulk(banking_transactions)
+                        transaction_count = len(banking_transactions)
+                        total_transactions_extracted += transaction_count
+
+                        try:
+                            transaction_analyzer.analyze(
+                                user_id=user_id,
+                                file_id=file_id,
+                                transactions=banking_transactions,
+                            )
+                        except Exception as analysis_error:
+                            print(f"Error running AI analysis: {str(analysis_error)}")
+
+                except Exception as e:
+                    print(f"Error extracting transactions for {file.filename}: {str(e)}")
+
+            results.append({
+                "file_id": file_id,
+                "file_name": file.filename,
+                "file_size": file_size,
+                "file_url": upload_result.get("file_url", ""),
+                "statement_type": statement_type,
+                "transactions_extracted": transaction_count,
+                "insights_generated": transaction_count > 0,
+            })
+
         return {
-            "file_id": file_id,
-            "file_name": file.filename,
-            "file_size": file_size,
-            "file_url": upload_result.get("file_url", ""),
-            "statement_type": statement_type,
-            "transactions_extracted": transaction_count,
-            "insights_generated": transaction_count > 0,
-            "message": "File uploaded and processed successfully"
+            "files": results,
+            "count": len(results),
+            "transactions_extracted_total": total_transactions_extracted,
+            "insights_generated": total_transactions_extracted > 0,
+            "message": "Files uploaded and processed successfully",
         }
         
     except SQLAlchemyError as e:

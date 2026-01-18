@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowRight,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -18,14 +19,15 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Subscription } from "./types"
-import { mockSubscriptions } from "./mock-data"
 import { formatCurrency, getMonthlyEquivalent } from "./utils"
 import { SubscriptionLogo } from "./SubscriptionLogo"
 import { ActionMenu } from "./ActionMenu"
 import { MobileSubscriptionCard } from "./MobileSubscriptionCard"
 import { SubscriptionDetailsDialog } from "./SubscriptionDetailsDialog"
-import { FlaggedItemsReview } from "./FlaggedItemsReview"
 import type { Scope } from "@/types/scope"
+import { useApi } from "@/hooks/use-api"
+import type { BankingTransaction, ClassificationSummary, SubscriptionAggregated } from "./api-types"
+import { NeedsReviewQueue } from "./NeedsReviewQueue"
 
 interface SubscriptionsProps {
   showFlaggedReview?: boolean
@@ -34,16 +36,29 @@ interface SubscriptionsProps {
 }
 
 export function Subscriptions({ showFlaggedReview = true, className, scope }: SubscriptionsProps) {
-  const [subscriptions, setSubscriptions] = useState(mockSubscriptions)
-  const [reviewedFlaggedIds, setReviewedFlaggedIds] = useState<Set<string>>(new Set())
+  const { get, post, isLoaded, isSignedIn } = useApi()
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [needsReview, setNeedsReview] = useState<BankingTransaction[]>([])
+  const [isDetecting, setIsDetecting] = useState(false)
+  const [isReviewing, setIsReviewing] = useState(false)
   const [currentPage, setCurrentPage] = useState(0)
   const [detailsDialog, setDetailsDialog] = useState<{
     open: boolean
     subscription: Subscription | null
   }>({ open: false, subscription: null })
 
-  // TODO: In the future, fetch subscriptions from API based on scope
-  // For now, using mock data
+  const scopeQueryString = React.useMemo(() => {
+    if (!scope) return ""
+    if (scope.type === "range") {
+      const params = new URLSearchParams({
+        start_date: scope.startDate,
+        end_date: scope.endDate,
+      })
+      return `?${params.toString()}`
+    }
+    // statement scope not supported by backend subscription classifier endpoints today
+    return ""
+  }, [scope])
 
   const itemsPerPage = 3
   const totalPages = Math.max(1, Math.ceil(subscriptions.length / itemsPerPage))
@@ -58,42 +73,87 @@ export function Subscriptions({ showFlaggedReview = true, className, scope }: Su
     setCurrentPage((p) => Math.min(p, lastPageIndex))
   }, [totalPages])
 
+  const fetchData = React.useCallback(async () => {
+    if (!scope) return
+    if (!isLoaded || !isSignedIn) return
+
+    // aggregated supports optional start/end
+    const aggregated = await get<SubscriptionAggregated[]>(
+      `/api/v1/query/transactions/subscriptions/aggregated${scopeQueryString}`
+    )
+
+    // needs-review supports optional start/end
+    const needs = await get<BankingTransaction[]>(
+      `/api/v1/query/transactions/subscriptions/needs-review${scopeQueryString}`
+    )
+
+    // Map aggregated subscriptions into the existing UI model (minimal fields)
+    const mapped: Subscription[] = (aggregated || []).map((s) => ({
+      id: s.merchant_key,
+      name: s.display_name,
+      logo: "/logos/af_logo.png",
+      amount: Number(s.average_monthly_amount ?? 0),
+      frequency: "monthly",
+      confidence: s.confidence_avg && s.confidence_avg >= 0.8 ? "high" : s.confidence_avg && s.confidence_avg >= 0.5 ? "medium" : "low",
+      confidenceReason: `Based on ${s.transaction_count} transactions across ${s.no_months_subscribed} months`,
+      flags: [],
+      lastCharges: [],
+      category: s.category ?? "Other",
+      status: "active",
+      statementPeriod: scope.type === "range" ? `${scope.startDate} - ${scope.endDate}` : "Current",
+      sourceRef: "",
+    }))
+
+    setSubscriptions(mapped)
+    setNeedsReview(needs || [])
+  }, [get, isLoaded, isSignedIn, scope, scopeQueryString])
+
+  React.useEffect(() => {
+    void fetchData()
+  }, [fetchData])
+
   // Calculate summary stats
   const totalMonthly = subscriptions.reduce(
     (sum, s) => sum + getMonthlyEquivalent(s.amount, s.frequency),
     0
   )
   const totalYearly = totalMonthly * 12
-  const flaggedSubscriptions = subscriptions.filter((s) => s.flags.length > 0)
-  const unreviewedFlagged = flaggedSubscriptions.filter((s) => !reviewedFlaggedIds.has(s.id))
-  const flaggedCount = flaggedSubscriptions.length
-  const currentFlagged = unreviewedFlagged[0] // Show one at a time
-  const reviewedCount = reviewedFlaggedIds.size
-  const potentialSavings = flaggedSubscriptions.reduce(
-    (sum, s) => sum + getMonthlyEquivalent(s.amount, s.frequency),
-    0
-  )
 
-  // Handle flagged subscription action - mark as reviewed and move to next
-  const handleFlaggedAction = (action: "subscription" | "not_subscription" | "dont_know", id: string) => {
-    console.log(`Flagged action: ${action} on subscription: ${id}`)
-    
-    // Mark as reviewed
-    setReviewedFlaggedIds((prev) => new Set([...prev, id]))
-    
-    // Update subscription status
-    setSubscriptions((prev) =>
-      prev.map((s) =>
-        s.id === id
-          ? {
-              ...s,
-              status: action === "subscription" ? "active" : action === "not_subscription" ? "not_subscription" : s.status,
-              // Clear flags if user confirmed it's a subscription or not
-              flags: action === "dont_know" ? s.flags : [],
-            }
-          : s
+  const canDetect = scope?.type === "range"
+  const hasAnyData = subscriptions.length > 0 || needsReview.length > 0
+
+  const handleDetect = async () => {
+    if (!scope || scope.type !== "range") return
+    if (!isLoaded || !isSignedIn) return
+
+    setIsDetecting(true)
+    try {
+      const params = new URLSearchParams({
+        start_date: scope.startDate,
+        end_date: scope.endDate,
+      })
+      await post<ClassificationSummary>(
+        `/api/v1/query/transactions/subscriptions/classify?${params.toString()}`,
+        {},
       )
-    )
+      await fetchData()
+    } finally {
+      setIsDetecting(false)
+    }
+  }
+
+  const handleReview = async (transactionId: string, decision: "confirmed" | "rejected") => {
+    if (!isLoaded || !isSignedIn) return
+    setIsReviewing(true)
+    try {
+      await post<unknown>("/api/v1/query/transactions/subscriptions/review", {
+        transaction_id: transactionId,
+        decision,
+      })
+      await fetchData()
+    } finally {
+      setIsReviewing(false)
+    }
   }
 
   // Action handler
@@ -111,11 +171,42 @@ export function Subscriptions({ showFlaggedReview = true, className, scope }: Su
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {!hasAnyData && (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            {isDetecting ? (
+              <div className="py-8">
+                <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                <div className="rounded-full bg-muted p-4 mb-4">
+                  <CreditCard className="h-8 w-8 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold">No subscriptions detected</h3>
+                <p className="text-muted-foreground mt-1 max-w-sm">
+                  Detect subscriptions from your transactions for the selected date range.
+                </p>
+                <div className="mt-4">
+                  <Button onClick={handleDetect} disabled={!canDetect || isDetecting}>
+                    Detect Subscriptions
+                  </Button>
+                  {!canDetect && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Switch the scope to a date range to run detection.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* A. Subscription Summary */}
-        <section>
+        {hasAnyData && (
+          <section>
           <p className="text-sm text-muted-foreground">Total spending</p>
           <p className="text-5xl font-light tracking-tight">
-            <span className="text-2xl align-top font-bold">$</span>
+            <span className="text-2xl align-top font-bold">RM</span>
             <span className="font-bold">{totalMonthly.toFixed(2).split('.')[0]}</span>
             <span className="text-2xl font-bold">.{totalMonthly.toFixed(2).split('.')[1]}</span>
             <span className="text-xl text-muted-foreground font-normal">/m</span>
@@ -125,23 +216,24 @@ export function Subscriptions({ showFlaggedReview = true, className, scope }: Su
             <span className="text-muted-foreground">You have </span>
             <span className="font-semibold text-foreground">{subscriptions.length} subscriptions</span>
             <span className="text-muted-foreground"> this month</span>
-            {flaggedCount > 0 && (
+            {needsReview.length > 0 && (
               <>
                 <span className="text-muted-foreground"> and </span>
-                <span className="font-semibold text-warning">{flaggedCount}</span>
+                <span className="font-semibold text-warning">{needsReview.length}</span>
                 <span className="text-muted-foreground"> need review.</span>
               </>
             )}
           </p>
           
           <p className="text-base">
-            <span className="text-muted-foreground">You will end the month with </span>
+            <span className="text-muted-foreground">You will end the year with </span>
             <span className="font-semibold text-success">{formatCurrency(totalYearly)}</span>
           </p>
-        </section>
+          </section>
+        )}
 
-        {/* B. Subscription List */}
-        <section>
+        {subscriptions.length > 0 && (
+          <section>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <h2 className="text-lg font-semibold">All Subscriptions ({subscriptions.length})</h2>
           </div>
@@ -232,41 +324,6 @@ export function Subscriptions({ showFlaggedReview = true, className, scope }: Su
             </div>
           )}
 
-          {/* Flagged Subscriptions Section - One at a time */}
-          {subscriptions.length > 0 && showFlaggedReview && (
-            <FlaggedItemsReview
-              flaggedSubscriptions={flaggedSubscriptions}
-              currentFlagged={currentFlagged}
-              reviewedCount={reviewedCount}
-              flaggedCount={flaggedCount}
-              onAction={handleFlaggedAction}
-              isMobile={false}
-            />
-          )}
-          
-          {/* Potential Savings Message (Dashboard view) */}
-          {subscriptions.length > 0 && !showFlaggedReview && flaggedCount > 0 && (
-            <div className="border-t pt-6">
-              <div className="p-4 rounded-lg bg-success/10 border border-success/30">
-                <p className="text-sm font-medium text-success-foreground mb-1">
-                  Potential Savings
-                </p>
-                <p className="text-xs text-success mb-3">
-                  Review flagged subscriptions to identify potential savings of up to{" "}
-                  <span className="font-semibold">
-                    {formatCurrency(potentialSavings)}
-                  </span>{" "}
-                  per month.
-                </p>
-                <Link href="/subscriptions">
-                  <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                    Review Flagged Subscriptions
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Mobile Card View */}
@@ -316,46 +373,20 @@ export function Subscriptions({ showFlaggedReview = true, className, scope }: Su
               </Button>
             </div>
           )}
-          
-          {/* Flagged Subscriptions Section for Mobile - One at a time */}
-          {flaggedCount > 0 && showFlaggedReview && (
-            <div className="pt-6">
-              <FlaggedItemsReview
-                flaggedSubscriptions={flaggedSubscriptions}
-                currentFlagged={currentFlagged}
-                reviewedCount={reviewedCount}
-                flaggedCount={flaggedCount}
-                onAction={handleFlaggedAction}
-                isMobile={true}
-              />
-            </div>
-          )}
-          
-          {/* Potential Savings Message for Mobile (Dashboard view) */}
-          {flaggedCount > 0 && !showFlaggedReview && (
-            <div className="pt-6">
-              <div className="p-4 rounded-lg bg-success/10 border border-success/30">
-                <p className="text-sm font-medium text-success-foreground mb-1">
-                  Potential Savings
-                </p>
-                <p className="text-xs text-success mb-3">
-                  Review flagged subscriptions to identify potential savings of up to{" "}
-                  <span className="font-semibold">
-                    {formatCurrency(potentialSavings)}
-                  </span>{" "}
-                  per month.
-                </p>
-                <Link href="/subscriptions">
-                  <Button variant="outline" size="sm" className="w-full">
-                    Review Flagged Subscriptions
-                    <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          )}
         </div>
       </section>
+        )}
+
+        {/* Needs review section */}
+        {showFlaggedReview && needsReview.length > 0 && (
+          <NeedsReviewQueue
+            items={needsReview}
+            isWorking={isReviewing}
+            onConfirm={(id) => handleReview(id, "confirmed")}
+            onReject={(id) => handleReview(id, "rejected")}
+            onSkip={() => {}}
+          />
+        )}
 
       </CardContent>
 

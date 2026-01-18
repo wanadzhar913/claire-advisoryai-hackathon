@@ -1,8 +1,9 @@
 """This file contains the database service for the application."""
 
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from typing import (
+    Dict,
     List,
     Optional,
 )
@@ -84,7 +85,7 @@ class DatabaseService:
             #     pool_size=pool_size,
             #     max_overflow=max_overflow,
             # )
-        except SQLAlchemyError as e:
+        except SQLAlchemyError:
             # logger.error("database_initialization_error", error=str(e), environment=settings.ENVIRONMENT.value)
             raise
 
@@ -595,7 +596,7 @@ class DatabaseService:
                 # Execute a simple query to check connection
                 session.exec(select(1)).first()
                 return True
-        except Exception as e:
+        except Exception:
             # logger.error("database_health_check_failed", error=str(e))
             return False
 
@@ -713,6 +714,218 @@ class DatabaseService:
 
             session.commit()
             return count
+
+    # Subscription classification methods
+    def get_subscription_candidates(
+        self,
+        user_id: int,
+        start_date: date,
+        end_date: date,
+        exclude_confirmed_rejected: bool = True,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[BankingTransaction]:
+        """Get candidate transactions for subscription classification.
+
+        Args:
+            user_id: The user ID to filter by
+            start_date: Start date of the range (inclusive)
+            end_date: End date of the range (inclusive)
+            exclude_confirmed_rejected: If True, exclude transactions already confirmed/rejected
+            limit: Maximum number of results to return
+            offset: Number of results to skip (for pagination)
+
+        Returns:
+            List[BankingTransaction]: List of candidate transactions
+        """
+        with Session(self.engine) as session:
+            statement = select(BankingTransaction).where(
+                and_(
+                    BankingTransaction.user_id == user_id,
+                    BankingTransaction.transaction_type == 'debit',
+                    BankingTransaction.transaction_date >= start_date,
+                    BankingTransaction.transaction_date <= end_date,
+                )
+            )
+
+            # Exclude already confirmed/rejected transactions if requested
+            if exclude_confirmed_rejected:
+                statement = statement.where(
+                    or_(
+                        BankingTransaction.subscription_status.is_(None),
+                        BankingTransaction.subscription_status == 'predicted',
+                        BankingTransaction.subscription_status == 'needs_review',
+                    )
+                )
+
+            # Order by date and ID for consistent batching
+            statement = statement.order_by(
+                BankingTransaction.transaction_date.asc(),
+                BankingTransaction.id.asc()
+            )
+
+            if offset > 0:
+                statement = statement.offset(offset)
+            if limit is not None:
+                statement = statement.limit(limit)
+
+            return session.exec(statement).all()
+
+    def bulk_update_subscription_classification(
+        self,
+        updates: List[Dict],
+    ) -> int:
+        """Bulk update subscription classification for transactions.
+
+        Args:
+            updates: List of dicts with transaction_id and classification fields:
+                - transaction_id: str (required)
+                - is_subscription: bool
+                - subscription_status: str ('predicted', 'confirmed', 'rejected', 'needs_review')
+                - subscription_confidence: float (0.0 to 1.0)
+                - subscription_merchant_key: str | None
+                - subscription_name: str | None
+                - subscription_reason_codes: List[str] | None
+
+        Returns:
+            int: Number of transactions updated
+        """
+        if not updates:
+            return 0
+
+        updated_count = 0
+        now = datetime.utcnow()
+
+        with Session(self.engine) as session:
+            for update in updates:
+                transaction_id = update.get('transaction_id')
+                if not transaction_id:
+                    continue
+
+                transaction = session.get(BankingTransaction, transaction_id)
+                if not transaction:
+                    continue
+
+                # Update subscription fields
+                if 'is_subscription' in update:
+                    transaction.is_subscription = update['is_subscription']
+                if 'subscription_status' in update:
+                    transaction.subscription_status = update['subscription_status']
+                if 'subscription_confidence' in update:
+                    transaction.subscription_confidence = update['subscription_confidence']
+                if 'subscription_merchant_key' in update:
+                    transaction.subscription_merchant_key = update['subscription_merchant_key']
+                if 'subscription_name' in update:
+                    transaction.subscription_name = update['subscription_name']
+                if 'subscription_reason_codes' in update:
+                    transaction.subscription_reason_codes = update['subscription_reason_codes']
+
+                transaction.subscription_updated_at = now
+                session.add(transaction)
+                updated_count += 1
+
+            session.commit()
+
+        return updated_count
+
+    def review_subscription_transaction(
+        self,
+        user_id: int,
+        transaction_id: str,
+        decision: str,
+    ) -> BankingTransaction:
+        """Persist a user's review decision for a subscription classification.
+
+        This is intended to resolve uncertain transactions (e.g. subscription_status == 'needs_review').
+
+        Args:
+            user_id: The authenticated user ID
+            transaction_id: The transaction to review
+            decision: 'confirmed' or 'rejected'
+
+        Returns:
+            BankingTransaction: The updated transaction
+
+        Raises:
+            ValueError: If decision is invalid, or transaction cannot be reviewed
+        """
+        if decision not in {"confirmed", "rejected"}:
+            raise ValueError("decision must be 'confirmed' or 'rejected'")
+
+        now = datetime.utcnow()
+
+        with Session(self.engine) as session:
+            tx = session.get(BankingTransaction, transaction_id)
+
+            # Avoid leaking existence across users
+            if not tx or tx.user_id != user_id:
+                raise ValueError("Transaction not found")
+
+            if tx.transaction_type != "debit":
+                raise ValueError("Only debit transactions can be reviewed as subscriptions")
+
+            if tx.subscription_status in {"confirmed", "rejected"}:
+                raise ValueError("Transaction subscription status is already finalized")
+
+            if decision == "confirmed":
+                tx.is_subscription = True
+                tx.subscription_status = "confirmed"
+                reason_tag = "user_confirmed"
+            else:
+                tx.is_subscription = False
+                tx.subscription_status = "rejected"
+                reason_tag = "user_rejected"
+
+            # Preserve and append reason codes
+            existing_reasons = tx.subscription_reason_codes or []
+            if not isinstance(existing_reasons, list):
+                existing_reasons = []
+            if reason_tag not in existing_reasons:
+                existing_reasons.append(reason_tag)
+            tx.subscription_reason_codes = existing_reasons
+
+            tx.subscription_updated_at = now
+
+            session.add(tx)
+            session.commit()
+            session.refresh(tx)
+
+            return tx
+
+    def get_subscription_needs_review(
+        self,
+        user_id: int,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+    ) -> List[BankingTransaction]:
+        """Get debit transactions flagged as needs_review for subscription classification."""
+        with Session(self.engine) as session:
+            statement = select(BankingTransaction).where(
+                and_(
+                    BankingTransaction.user_id == user_id,
+                    BankingTransaction.transaction_type == "debit",
+                    BankingTransaction.subscription_status == "needs_review",
+                )
+            )
+
+            if start_date is not None:
+                statement = statement.where(BankingTransaction.transaction_date >= start_date)
+            if end_date is not None:
+                statement = statement.where(BankingTransaction.transaction_date <= end_date)
+
+            statement = statement.order_by(
+                BankingTransaction.transaction_date.desc(),
+                BankingTransaction.id.desc(),
+            )
+
+            if offset > 0:
+                statement = statement.offset(offset)
+            if limit is not None:
+                statement = statement.limit(limit)
+
+            return session.exec(statement).all()
 
 
 # Create a singleton instance

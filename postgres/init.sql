@@ -61,6 +61,12 @@ CREATE TABLE IF NOT EXISTS statement_banking_transaction (
     transaction_code TEXT,
     category TEXT,
     currency TEXT NOT NULL DEFAULT 'MYR',
+    subscription_status TEXT CHECK(subscription_status IN ('predicted', 'confirmed', 'rejected', 'needs_review')),
+    subscription_confidence REAL CHECK(subscription_confidence >= 0 AND subscription_confidence <= 1),
+    subscription_merchant_key TEXT,
+    subscription_name TEXT,
+    subscription_reason_codes JSONB,
+    subscription_updated_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES app_users(id) ON DELETE CASCADE,
     FOREIGN KEY (file_id) REFERENCES user_upload(file_id) ON DELETE CASCADE
@@ -111,3 +117,9 @@ CREATE INDEX IF NOT EXISTS idx_banking_transaction_file_id ON statement_banking_
 CREATE INDEX IF NOT EXISTS idx_banking_transaction_date ON statement_banking_transaction(transaction_date);
 CREATE INDEX IF NOT EXISTS idx_banking_transaction_year_month ON statement_banking_transaction(transaction_year, transaction_month);
 CREATE INDEX IF NOT EXISTS idx_banking_transaction_type ON statement_banking_transaction(transaction_type);
+
+-- Subscription classification indexes
+CREATE INDEX IF NOT EXISTS idx_banking_transaction_user_date ON statement_banking_transaction(user_id, transaction_date);
+CREATE INDEX IF NOT EXISTS idx_banking_transaction_user_subscription ON statement_banking_transaction(user_id, is_subscription);
+CREATE INDEX IF NOT EXISTS idx_banking_transaction_user_merchant_key ON statement_banking_transaction(user_id, subscription_merchant_key);
+CREATE INDEX IF NOT EXISTS idx_banking_transaction_user_date_subscription ON statement_banking_transaction(user_id, transaction_date, is_subscription);

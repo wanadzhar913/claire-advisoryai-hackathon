@@ -6,47 +6,9 @@ import { Goals } from "@/components/Goals";
 import { Summary } from "@/components/Summary";
 import { ScopeSelector } from "@/components/ScopeSelector";
 import { useScope } from "@/contexts/ScopeContext";
-import { useApi } from "@/hooks/use-api";
-import { useEffect } from "react";
 
 export default function DashboardPage() {
   const { scope, hasFiles, filesLoading } = useScope();
-  const { get, isLoaded, isSignedIn } = useApi();
-
-  useEffect(() => {
-    if (!scope) return;
-    if (!isLoaded || !isSignedIn) return;
-
-    const abortController = new AbortController();
-
-    (async () => {
-      try {
-        let endpoint = "/api/v1/query/transactions/subscriptions/aggregated";
-
-        // Best-effort scope support:
-        // - statement scope: filter by transaction_year using the statement's year when available elsewhere
-        // - range scope: pass start_date/end_date (may or may not be supported by backend endpoint)
-        if (scope.type === "range") {
-          const params = new URLSearchParams({
-            start_date: scope.startDate,
-            end_date: scope.endDate,
-          });
-          endpoint = `${endpoint}?${params.toString()}`;
-        }
-
-        const data = await get<unknown>(endpoint);
-        console.log(
-          "GET /query/transactions/subscriptions/aggregated response:",
-          data,
-        );
-      } catch (err) {
-        if (abortController.signal.aborted) return;
-        console.error("Failed to fetch subscriptions:", err);
-      }
-    })();
-
-    return () => abortController.abort();
-  }, [get, isLoaded, isSignedIn, scope]);
 
   return (
     <div className="space-y-6 p-6 min-w-0">
@@ -95,7 +57,7 @@ export default function DashboardPage() {
             <SankeyDiagram height={500} className="w-full" scope={scope} />
             <Subscriptions
               className="w-full"
-              showFlaggedReview={false}
+              showFlaggedReview={true}
               scope={scope}
             />
           </div>

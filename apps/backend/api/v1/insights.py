@@ -1,5 +1,6 @@
 """Financial insights API endpoints."""
 
+from datetime import date
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
@@ -56,6 +57,8 @@ async def get_insights(
         description="Filter by insight type"
     ),
     file_id: Optional[str] = Query(default=None, description="Filter by file ID"),
+    start_date: Optional[date] = Query(default=None, description="Filter insights from this date onwards (based on associated transactions)"),
+    end_date: Optional[date] = Query(default=None, description="Filter insights up to this date (based on associated transactions)"),
     limit: Optional[int] = Query(default=50, ge=1, le=100, description="Maximum results"),
     offset: int = Query(default=0, ge=0, description="Results to skip"),
 ) -> InsightsListResponse:
@@ -67,6 +70,8 @@ async def get_insights(
         current_user: Authenticated user (from Clerk JWT)
         insight_type: Optional filter by insight type
         file_id: Optional filter by file ID
+        start_date: Optional filter by start date (insights related to transactions from this date)
+        end_date: Optional filter by end date (insights related to transactions up to this date)
         limit: Maximum number of results
         offset: Number of results to skip
         
@@ -76,6 +81,9 @@ async def get_insights(
     user_id = current_user.id
     
     try:
+        # Note: start_date and end_date filtering would require joining with transactions
+        # For now, we filter by file_id if provided, or return all insights
+        # TODO: Implement date range filtering for insights based on associated transaction dates
         insights = database_service.get_user_insights(
             user_id=user_id,
             insight_type=insight_type,
