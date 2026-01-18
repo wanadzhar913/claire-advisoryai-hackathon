@@ -28,6 +28,7 @@ try:
     from backend.models.banking_transaction import BankingTransaction
     from backend.models.user_upload import UserUpload
     from backend.models.financial_insight import FinancialInsight
+    from backend.models.earn_extra_plan import EarnExtraPlan
 except ImportError:
     # If running as script, add parent directory to path
     import sys
@@ -44,6 +45,7 @@ except ImportError:
     from backend.models.banking_transaction import BankingTransaction
     from backend.models.user_upload import UserUpload
     from backend.models.financial_insight import FinancialInsight
+    from backend.models.earn_extra_plan import EarnExtraPlan
 
 
 class DatabaseService:
@@ -543,6 +545,110 @@ class DatabaseService:
             session.delete(goal)
             session.commit()
             return True
+
+    # Earn Extra Plan methods
+    def create_earn_extra_plans(self, plans: List[EarnExtraPlan]) -> List[EarnExtraPlan]:
+        """Create multiple earn extra plans in bulk."""
+        if not plans:
+            raise ValueError("Cannot create empty list of earn extra plans")
+
+        with Session(self.engine) as session:
+            session.add_all(plans)
+            session.commit()
+            for plan in plans:
+                session.refresh(plan)
+            return plans
+
+    def get_earn_extra_plan(self, user_id: int, plan_id: str) -> Optional[EarnExtraPlan]:
+        """Get a single earn extra plan for a user (ownership enforced)."""
+        with Session(self.engine) as session:
+            statement = select(EarnExtraPlan).where(and_(EarnExtraPlan.user_id == user_id, EarnExtraPlan.id == plan_id))
+            return session.exec(statement).first()
+
+    def get_user_earn_extra_plans(
+        self,
+        user_id: int,
+        status: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
+        order_by: str = "created_at",
+        order_desc: bool = True,
+    ) -> List[EarnExtraPlan]:
+        """Get earn extra plans for a user with optional filtering and pagination."""
+        with Session(self.engine) as session:
+            statement = select(EarnExtraPlan).where(EarnExtraPlan.user_id == user_id)
+
+            if status is not None:
+                statement = statement.where(EarnExtraPlan.status == status)
+
+            order_field = getattr(EarnExtraPlan, order_by, EarnExtraPlan.created_at)
+            statement = statement.order_by(order_field.desc() if order_desc else order_field.asc())
+
+            if offset > 0:
+                statement = statement.offset(offset)
+            if limit is not None:
+                statement = statement.limit(limit)
+
+            return session.exec(statement).all()
+
+    def activate_earn_extra_plan(self, user_id: int, plan_id: str) -> EarnExtraPlan:
+        """Activate a plan and archive any currently active plans for the user."""
+        with Session(self.engine) as session:
+            plan = session.exec(
+                select(EarnExtraPlan).where(and_(EarnExtraPlan.user_id == user_id, EarnExtraPlan.id == plan_id))
+            ).first()
+            if not plan:
+                raise HTTPException(status_code=404, detail="Plan not found")
+
+            # Archive other active plans
+            active_plans = session.exec(
+                select(EarnExtraPlan).where(and_(EarnExtraPlan.user_id == user_id, EarnExtraPlan.status == "active"))
+            ).all()
+            for other in active_plans:
+                if other.id != plan_id:
+                    other.status = "archived"
+                    other.updated_at = datetime.now()
+                    session.add(other)
+
+            plan.status = "active"
+            plan.updated_at = datetime.now()
+            session.add(plan)
+            session.commit()
+            session.refresh(plan)
+            return plan
+
+    def update_earn_extra_plan(
+        self,
+        user_id: int,
+        plan_id: str,
+        saved_so_far: Optional[Decimal] = None,
+        actions_progress: Optional[List[Dict]] = None,
+        status: Optional[str] = None,
+    ) -> EarnExtraPlan:
+        """Update a plan's tracking fields (ownership enforced)."""
+        with Session(self.engine) as session:
+            plan = session.exec(
+                select(EarnExtraPlan).where(and_(EarnExtraPlan.user_id == user_id, EarnExtraPlan.id == plan_id))
+            ).first()
+            if not plan:
+                raise HTTPException(status_code=404, detail="Plan not found")
+
+            if saved_so_far is not None:
+                plan.saved_so_far = saved_so_far
+            if actions_progress is not None:
+                plan.actions_progress = actions_progress
+            if status is not None:
+                plan.status = status
+
+            plan.updated_at = datetime.now()
+            session.add(plan)
+            session.commit()
+            session.refresh(plan)
+            return plan
+
+    def complete_earn_extra_plan(self, user_id: int, plan_id: str) -> EarnExtraPlan:
+        """Mark a plan as completed."""
+        return self.update_earn_extra_plan(user_id=user_id, plan_id=plan_id, status="completed")
 
     def get_user_uploads(
         self,

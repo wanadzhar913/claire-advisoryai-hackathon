@@ -108,6 +108,31 @@ CREATE INDEX IF NOT EXISTS idx_insight_user_id ON financial_insight(user_id);
 CREATE INDEX IF NOT EXISTS idx_insight_user_type ON financial_insight(user_id, insight_type);
 CREATE INDEX IF NOT EXISTS idx_insight_file_id ON financial_insight(file_id);
 
+-- Earn extra micro-plans table
+CREATE TABLE IF NOT EXISTS earn_extra_plan (
+    id TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+    file_id TEXT REFERENCES user_upload(file_id) ON DELETE SET NULL,
+    status TEXT NOT NULL DEFAULT 'generated' CHECK (status IN ('generated', 'active', 'completed', 'archived')),
+    target_amount DECIMAL(15, 2) NOT NULL DEFAULT 500 CHECK (target_amount >= 0),
+    currency TEXT NOT NULL DEFAULT 'MYR',
+    timeframe_days INTEGER NOT NULL DEFAULT 30 CHECK (timeframe_days > 0),
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    actions JSONB,
+    expected_amount DECIMAL(15, 2),
+    confidence TEXT CHECK (confidence IN ('low', 'med', 'high')),
+    saved_so_far DECIMAL(15, 2) NOT NULL DEFAULT 0 CHECK (saved_so_far >= 0),
+    actions_progress JSONB,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for earn extra plans
+CREATE INDEX IF NOT EXISTS idx_earn_extra_user_id ON earn_extra_plan(user_id);
+CREATE INDEX IF NOT EXISTS idx_earn_extra_user_status ON earn_extra_plan(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_earn_extra_user_file ON earn_extra_plan(user_id, file_id);
+
 -- Create indexes for frequently queried columns
 CREATE INDEX IF NOT EXISTS idx_user_email ON app_users(email);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_app_users_clerk_id ON app_users(clerk_id);

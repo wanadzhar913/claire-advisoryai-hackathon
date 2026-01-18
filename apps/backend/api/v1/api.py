@@ -7,7 +7,8 @@ from api.v1 import (
     query_transactions,
     chatbot,
     goals,
-    insights
+    insights,
+    earn_extra
 )
 
 api_router = APIRouter()
@@ -19,6 +20,7 @@ api_router.include_router(query_transactions.router, prefix="/query", tags=["Que
 api_router.include_router(chatbot.router, prefix="/chatbot", tags=["Financial Advice Agent"])
 api_router.include_router(goals.router, prefix="/goals", tags=["Goals"])
 api_router.include_router(insights.router, prefix="/insights", tags=["Financial Insights"])
+api_router.include_router(earn_extra.router, prefix="/earn-extra", tags=["Earn Extra"])
 
 @api_router.get("/app_health", tags=["Monitoring"])
 async def app_health_check():
