@@ -3,6 +3,7 @@
 import { SankeyDiagram } from "@/components/SankeyDiagram";
 import { Subscriptions } from "@/components/subscriptions";
 import { Goals } from "@/components/Goals";
+import { EarnExtra } from "@/components/EarnExtra";
 import { Summary } from "@/components/Summary";
 import { ScopeSelector } from "@/components/ScopeSelector";
 import { useScope } from "@/contexts/ScopeContext";
@@ -51,19 +52,19 @@ export default function DashboardPage() {
 
       {/* Dashboard content - only show when we have files and a scope */}
       {hasFiles && scope && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 min-[988px]:grid-cols-3 gap-6">
           {/* Left Column */}
-          <div className="md:col-span-2 space-y-6 min-w-0">
+          <div className="min-[988px]:col-span-2 flex flex-col gap-6 min-w-0">
             <SankeyDiagram height={500} className="w-full" scope={scope} />
             <Subscriptions
-              className="w-full"
+              className="w-full flex-1"
               showFlaggedReview={true}
               scope={scope}
             />
           </div>
 
           {/* Right Column */}
-          <div className="md:col-span-1 flex flex-col gap-6 min-w-0">
+          <div className="min-[988px]:col-span-1 flex flex-col gap-6 min-w-0">
             <Summary
               className="shrink-0"
               onClose={() => console.log("Close clicked")}
@@ -74,6 +75,7 @@ export default function DashboardPage() {
               className="flex-1"
               onAction={() => console.log("Goal action clicked")}
             />
+            <EarnExtra className="flex-1" />
           </div>
         </div>
       )}

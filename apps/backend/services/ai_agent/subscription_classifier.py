@@ -1,4 +1,4 @@
-"""Subscription classification service using GPT-5 mini for detecting recurring transactions."""
+"""Subscription classification service using GPT-4o for detecting recurring transactions."""
 
 import json
 from datetime import date
@@ -77,12 +77,12 @@ class ClassificationSummary(BaseModel):
 
 
 class SubscriptionClassifier:
-    """Service for classifying transactions as subscriptions using GPT-5 mini."""
+    """Service for classifying transactions as subscriptions using GPT-4o."""
 
     # Configuration
     BATCH_SIZE = 300  # Transactions per LLM call
     MAX_RANGE_DAYS = 365  # Maximum date range allowed
-    MODEL_NAME = "gpt-5-mini"
+    MODEL_NAME = "gpt-4o"
 
     def __init__(self):
         """Initialize the subscription classifier."""
@@ -170,7 +170,7 @@ class SubscriptionClassifier:
         start_date: date,
         end_date: date,
     ) -> List[SubscriptionDecision]:
-        """Classify a batch of transactions using GPT-5 mini.
+        """Classify a batch of transactions using GPT-4o.
 
         Args:
             transactions: List of transactions to classify
@@ -229,7 +229,7 @@ class SubscriptionClassifier:
         }
 
     def _call_llm(self, input_payload: Dict[str, Any]) -> str:
-        """Call GPT-5 mini with the classification prompt.
+        """Call GPT-4o with the classification prompt.
 
         Args:
             input_payload: The input payload for classification
