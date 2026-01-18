@@ -1,5 +1,6 @@
 """File upload endpoints for handling user file uploads and processing."""
 
+import asyncio
 import uuid
 from datetime import date, datetime as dt
 from decimal import Decimal
@@ -42,7 +43,7 @@ async def upload_file(
         expense_year: Year of the expense, defaults to current year
         
     Returns:
-        Dictionary with upload details and extracted transaction count
+    - Dictionary with upload details and extracted transaction count
     """
     user_id = current_user.id
     try:
@@ -96,11 +97,11 @@ async def upload_file(
         if statement_type == "banking_transaction":
             try:
                 # Extract transactions using the financial text extractor
-                transactions_data = extract_banking_transactions(
-                    file_path= None, # file.filename or "unknown",
+                transactions_data = await extract_banking_transactions(
+                    file_path=None,  # file.filename or "unknown",
                     file_content=file_content,
                     file_mime_type=file_mime_type,
-                    user_upload_id=file_id,
+                    user_upload_id=file_id
                 )
                 
                 # Transform to BankingTransaction models
@@ -124,6 +125,7 @@ async def upload_file(
                         description=tx_data['description'],
                         merchant_name=tx_data.get('merchant_name'),
                         amount=Decimal(str(tx_data['amount'])),
+                        is_subscription=tx_data.get('is_subscription', False),
                         transaction_type=tx_data['transaction_type'],
                         balance=Decimal(str(tx_data['balance'])) if tx_data.get('balance') else None,
                         reference_number=tx_data.get('reference_number'),
@@ -189,7 +191,7 @@ async def list_user_uploads(
         order_desc: Order descending if True, ascending if False
         
     Returns:
-        Dictionary with uploads list and pagination info
+    - Dictionary with uploads list and pagination info
     """
     user_id = current_user.id
     uploads = database_service.get_user_uploads(
@@ -233,7 +235,7 @@ async def download_user_upload(
         current_user: Authenticated user (from Clerk JWT)
         
     Returns:
-        StreamingResponse with file content
+    - StreamingResponse with file content
     """
     user_id = current_user.id
     # Get user upload to verify ownership

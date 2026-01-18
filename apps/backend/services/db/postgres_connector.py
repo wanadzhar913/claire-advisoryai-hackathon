@@ -330,6 +330,7 @@ class DatabaseService:
         merchant_name: Optional[str] = None,
         transaction_type: Optional[str] = None,
         category: Optional[str] = None,
+        is_subscription: Optional[bool] = None,
         min_amount: Optional[Decimal] = None,
         max_amount: Optional[Decimal] = None,
         transaction_year: Optional[int] = None,
@@ -353,6 +354,7 @@ class DatabaseService:
             category: Filter by transaction category
             min_amount: Minimum transaction amount (inclusive)
             max_amount: Maximum transaction amount (inclusive)
+            is_subscription: Filter by subscription status (likely to recur monthly)
             transaction_year: Filter by transaction year
             transaction_month: Filter by transaction month (1-12)
             currency: Filter by currency code (e.g., 'MYR')
@@ -396,6 +398,10 @@ class DatabaseService:
             # Filter by category
             if category is not None:
                 conditions.append(BankingTransaction.category == category)
+
+            # Filter by subscription status
+            if is_subscription is not None:
+                conditions.append(BankingTransaction.is_subscription == is_subscription)
 
             # Filter by amount range
             if min_amount is not None:

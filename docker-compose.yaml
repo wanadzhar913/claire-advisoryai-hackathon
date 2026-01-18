@@ -85,7 +85,12 @@ services:
     image: minio/mc:RELEASE.2025-07-16T15-35-03Z-cpuv1
     depends_on:
       - minio
-    entrypoint: ["/bin/sh", "-c", "tr -d '\\r' < /create-bucket.sh > /tmp/script.sh && /bin/sh /tmp/script.sh"]
+    entrypoint:
+      [
+        "/bin/sh",
+        "-c",
+        "tr -d '\\r' < /create-bucket.sh > /tmp/script.sh && /bin/sh /tmp/script.sh",
+      ]
     volumes:
       - ./scripts/create-bucket.sh:/create-bucket.sh
     environment:
@@ -97,7 +102,6 @@ services:
     restart: on-failure
     networks:
       - claire
-
 
 networks:
   claire:

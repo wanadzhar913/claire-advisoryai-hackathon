@@ -139,12 +139,8 @@ class MinIOConnector:
                 }
             )
             
-            # Generate file URL (presigned URL valid for 7 days)
-            file_url = self.client.presigned_get_object(
-                self.bucket_name,
-                object_path,
-                expires=timedelta(days=7)
-            )
+            # Generate S3-style URL (standard format for object storage references)
+            file_url = f"s3://{self.bucket_name}/{object_path}"
             
             return {
                 "file_url": file_url,
@@ -333,11 +329,8 @@ class MinIOConnector:
                 }
             )
             
-            file_url = self.client.presigned_get_object(
-                self.bucket_name,
-                object_path,
-                expires=timedelta(days=7)
-            )
+            # Generate S3-style URL (standard format for object storage references)
+            file_url = f"s3://{self.bucket_name}/{object_path}"
             
             return {
                 "file_url": file_url,
@@ -447,6 +440,19 @@ class MinIOConnector:
             if e.code == "NoSuchKey":
                 return False
             raise Exception(f"Failed to check file existence: {e}")
+
+    def health_check(self) -> bool:
+        """
+        Check the health of the MinIO connector.
+        
+        Returns:
+            True if the connector can list buckets, False otherwise
+        """
+        try:
+            self.client.list_buckets()
+            return True
+        except Exception as e:
+            raise Exception(f"Failed to check MinIO health: {e}")
 
 
 # Singleton instance

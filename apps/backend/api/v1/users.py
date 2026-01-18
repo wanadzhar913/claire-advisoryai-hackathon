@@ -33,13 +33,13 @@ async def register_user(user_data: UserRegistrationRequest) -> UserResponse:
     """Register a new user.
     
     Args:
-        user_data: User registration data (email required, password optional)
+    - `user_data`: User registration data (email required, password optional)
         
     Returns:
-        UserResponse: Created user information
+    - `UserResponse`: Created user information
         
     Raises:
-        HTTPException: If email already exists or registration fails
+    - `HTTPException`: If email already exists or registration fails
     """
     try:
         # Hash password if provided, otherwise use empty string
@@ -79,13 +79,13 @@ async def get_user(user_id: int) -> UserResponse:
     """Get user by ID.
     
     Args:
-        user_id: User ID
+    - `user_id`: User ID
         
     Returns:
-        UserResponse: User information
+    - `UserResponse`: User information
         
     Raises:
-        HTTPException: If user not found
+    - `HTTPException`: If user not found
     """
     user = await database_service.get_user(user_id)
     
@@ -104,13 +104,13 @@ async def get_user_by_email(email: str) -> UserResponse:
     """Get user by email.
     
     Args:
-        email: User email address
+    - `email`: User email address
         
     Returns:
-        UserResponse: User information
+    - `UserResponse`: User information
         
     Raises:
-        HTTPException: If user not found
+    - `HTTPException`: If user not found
     """
     user = await database_service.get_user_by_email(email)
     
