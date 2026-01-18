@@ -1,11 +1,10 @@
-from typing import Dict
-
 import uvicorn
-from fastapi import FastAPI, status, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
+from services.db.postgres_connector import database_service
+from services.object_store.minio_connector import get_minio_connector
 from api.v1.api import api_router
 
 app = FastAPI(
@@ -39,8 +38,22 @@ async def root(request: Request):
 
 @app.get("/services_health", tags=["Monitoring"])
 async def health_check(request: Request):
-    """Health check endpoint."""
-    return {"status": "ok"}
+    """Services Health check endpoint."""
+    try:
+        db_health = await database_service.health_check()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database health check failed: {str(e)}")
+
+    try:
+        minio_connector = get_minio_connector()
+        minio_health = minio_connector.health_check()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"MinIO health check failed: {str(e)}")
+    return {
+        "status": "healthy",
+        "database": "healthy" if db_health else "unhealthy",
+        "minio": "healthy" if minio_health else "unhealthy",
+    }
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

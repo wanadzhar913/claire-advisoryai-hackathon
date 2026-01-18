@@ -3,17 +3,20 @@ Financial Text Extractor for parsing banking statements and financial documents.
 
 This module extracts structured banking transaction data from various document formats
 (PDF, Excel, etc.) and returns data matching the statement_banking_transaction schema.
+
+**NOTE:** Clearning needed to remove PyPDF2 dependency. Should just feed PDFs/Documents to OpenAI.
 """
 
 import io
 import os
 import json
 import base64
+import asyncio
 from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Any, Literal
 
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 
 import pandas as pd
 
@@ -44,8 +47,9 @@ class FinancialTextExtractor:
         if not api_key:
             raise ValueError("OPENAI_API_KEY must be set in environment or config")
         self.client = OpenAI(api_key=api_key)
+        self.async_client = AsyncOpenAI(api_key=api_key)
     
-    def extract_from_file(
+    async def extract_from_file(
         self,
         file_path: str | Path | None = None,
         file_content: bytes | None = None,
@@ -86,10 +90,10 @@ class FinancialTextExtractor:
                 text_content = self._extract_as_text(file_path, file_content)
             
             # Use OpenAI to extract structured data
-            transactions = self._extract_structured_data_using_pypdf2(text_content, user_upload_id)
+            transactions = await self._extract_structured_data_using_pypdf2(text_content, user_upload_id)
         else:
             # Use OpenAI to extract structured data
-            transactions = self._extract_structured_data_using_openai(file_path, file_content, mime_type, user_upload_id=user_upload_id)
+            transactions = await self._extract_structured_data_using_openai(file_path, file_content, mime_type, user_upload_id=user_upload_id)
         return transactions
     
     def _get_mime_type_from_path(self, file_path: str | Path) -> str:
@@ -212,7 +216,7 @@ class FinancialTextExtractor:
             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                 return f.read()
     
-    def _extract_structured_data_using_pypdf2(
+    async def _extract_structured_data_using_pypdf2(
         self, 
         text_content: str, 
         user_upload_id: str | None = None,
@@ -226,7 +230,7 @@ class FinancialTextExtractor:
         valid_categories = [cat.value for cat in FinancialTransactionCategory]
         categories_list = ", ".join([f"'{cat}'" for cat in valid_categories])
         
-        system_prompt = f"""You are a financial data extraction expert specializing in Malaysian bank statements.
+        system_prompt = f"""You are a Malaysian financial data extraction expert specializing in Malaysian bank statements.
         Extract all banking transactions from the provided text and return them as a JSON array.
 
         For each transaction, extract the following fields:
@@ -240,6 +244,7 @@ class FinancialTextExtractor:
         - transaction_code: Bank transaction code (if available)
         - category: Transaction category - MUST be one of the following valid values: {categories_list}. Use 'other' if the transaction doesn't fit any specific category.
         - currency: Currency code (default to 'MYR' for Malaysian Ringgit)
+        - is_subscription: Whether the transaction is a subscription/membership (likely to recur monthly) e.g., Netflix, Spotify, Apple Music, gym membership, etc.
 
         Important rules:
         1. Parse dates in various formats (DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, etc.) and convert to YYYY-MM-DD
@@ -248,19 +253,23 @@ class FinancialTextExtractor:
         - Debit: Payments, purchases, withdrawals, transfers out
         - Credit: Deposits, salary, refunds, transfers in
         4. Extract merchant_name from description when possible
-        5. If balance is not provided, set to null
-        6. If any optional field is not available, set to null
-        7. Category field MUST use one of the valid category values listed above. Map common transaction types as follows:
+        5. Use merchant_name and description to determine the category if possible.
+        6. If balance is not provided, set to null
+        7. If any optional field is not available, set to null
+        8. Category field MUST use one of the valid category values listed above. Map common transaction types as follows:
         - Income/salary/deposits → 'income'
+        - Transfers or TRANSFER FROM A/C → 'cash_transfer'
         - Rent/mortgage/housing → 'housing'
-        - Petrol/taxi/public transport/car payments → 'transportation'
-        - Restaurants/cafes/food delivery → 'food_and_dining_out'
-        - Movies/games/events/hobbies → 'entertainment'
+        - Petrol/taxi/public transport/car payments/Grab/Gojek → 'transportation'
+        - Restaurants/cafes/food delivery/makan → 'food_and_dining_out'
+        - Movies/games/events/hobbies/GSC/TGV → 'entertainment'
         - Medical/dental/pharmacy → 'healthcare'
-        - School/tuition/books/courses → 'education'
+        - School/tuition/books/courses/SPM/STPM/sekolah → 'education'
         - Electricity/water/internet/phone bills → 'utilities'
-        - Supermarket/grocery stores → 'groceries'
-        - Netflix/Spotify/gym memberships → 'subscriptions_and_memberships'
+        - Investments/savings/stocks/ETFs/Unit Trusts/KLCI/Pacific Trustees/ASB/Amanah Saham → 'investments_and_savings'
+        - Technology/electronics/gadgets/Apple/Samsung/Google/Microsoft/smartphone → 'technology_and_electronics'
+        - Supermarket/grocery stores/pasar → 'groceries'
+        - Gym/sports/fitness/club memberships → 'sport_and_activity'
         - Anything else → 'other'
 
         Return ONLY valid JSON array, no additional text or markdown formatting."""
@@ -326,7 +335,7 @@ class FinancialTextExtractor:
         except Exception as e:
             raise ValueError(f"Failed to extract structured data: {str(e)}")
 
-    def _extract_structured_data_using_openai(
+    async def _extract_structured_data_using_openai(
         self, 
         file_path: str | Path | None = None,
         file_content: bytes | None = None,
@@ -334,7 +343,8 @@ class FinancialTextExtractor:
         user_upload_id: str | None = None,
     ) -> List[Dict[str, Any]]:
         """
-        Uses pypdf2 to extract text from the file and then uses OpenAI to extract structured banking transaction data from text.
+        Uses OpenAI to extract structured banking transaction data from file.
+        For PDFs, splits into 2-page chunks and processes them in parallel.
         
         Returns a list of transaction dictionaries matching the schema.
         """
@@ -342,7 +352,7 @@ class FinancialTextExtractor:
         valid_categories = [cat.value for cat in FinancialTransactionCategory]
         categories_list = ", ".join([f"'{cat}'" for cat in valid_categories])
         
-        system_prompt = f"""You are a financial data extraction expert specializing in Malaysian bank statements.
+        system_prompt = f"""You are a Malaysian financial data extraction expert specializing in Malaysian bank statements.
         Extract all banking transactions from the provided text and return them as a JSON array.
 
         For each transaction, extract the following fields:
@@ -356,6 +366,7 @@ class FinancialTextExtractor:
         - transaction_code: Bank transaction code (if available)
         - category: Transaction category - MUST be one of the following valid values: {categories_list}. Use 'other' if the transaction doesn't fit any specific category.
         - currency: Currency code (default to 'MYR' for Malaysian Ringgit)
+        - is_subscription: Whether the transaction is a subscription/membership (likely to recur monthly) e.g., Netflix, Spotify, Apple Music, gym membership, etc.
 
         Important rules:
         1. Parse dates in various formats (DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD, etc.) and convert to YYYY-MM-DD
@@ -364,30 +375,132 @@ class FinancialTextExtractor:
         - Debit: Payments, purchases, withdrawals, transfers out
         - Credit: Deposits, salary, refunds, transfers in
         4. Extract merchant_name from description when possible
-        5. If balance is not provided, set to null
-        6. If any optional field is not available, set to null
-        7. Category field MUST use one of the valid category values listed above. Map common transaction types as follows:
+        5. Use merchant_name and description to determine the category if possible.
+        6. If balance is not provided, set to null
+        7. If any optional field is not available, set to null
+        8. Category field MUST use one of the valid category values listed above. Map common transaction types as follows:
         - Income/salary/deposits → 'income'
+        - Transfers or TRANSFER FROM A/C → 'cash_transfer'
         - Rent/mortgage/housing → 'housing'
-        - Petrol/taxi/public transport/car payments → 'transportation'
-        - Restaurants/cafes/food delivery → 'food_and_dining_out'
-        - Movies/games/events/hobbies → 'entertainment'
+        - Petrol/taxi/public transport/car payments/Grab/Gojek → 'transportation'
+        - Restaurants/cafes/food delivery/makan → 'food_and_dining_out'
+        - Movies/games/events/hobbies/GSC/TGV → 'entertainment'
         - Medical/dental/pharmacy → 'healthcare'
-        - School/tuition/books/courses → 'education'
+        - School/tuition/books/courses/SPM/STPM/sekolah → 'education'
         - Electricity/water/internet/phone bills → 'utilities'
-        - Supermarket/grocery stores → 'groceries'
-        - Netflix/Spotify/gym memberships → 'subscriptions_and_memberships'
+        - Investments/savings/stocks/ETFs/Unit Trusts/KLCI/Pacific Trustees/ASB/Amanah Saham → 'investments_and_savings'
+        - Technology/electronics/gadgets/Apple/Samsung/Google/Microsoft/smartphone → 'technology_and_electronics'
+        - Supermarket/grocery stores/pasar → 'groceries'
+        - Gym/sports/fitness/club memberships → 'sport_and_activity'
         - Anything else → 'other'
 
         Return ONLY valid JSON array, no additional text or markdown formatting."""
 
         user_prompt = f"""Extract all banking transactions from the following file. Return a JSON object with a "transactions" key containing an array of transaction objects with the fields specified above."""
 
-        if file_path:
+        # Ensure we have file_content
+        if file_path and file_content is None:
             with open(file_path, "rb") as f:
                 file_content = f.read()
-
+        
+        if file_content is None:
+            raise ValueError("Either file_path or file_content must be provided")
+        
         try:
+            # If PDF, split into 2-page chunks and process in parallel
+            if file_mime_type and 'pdf' in file_mime_type.lower():
+                # Split PDF into 2-page chunks
+                import PyPDF2
+                pdf_file = io.BytesIO(file_content)
+                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                total_pages = len(pdf_reader.pages)
+                
+                chunks = []
+                for start_page in range(0, total_pages, 2):
+                    end_page = min(start_page + 2, total_pages)
+                    pdf_writer = PyPDF2.PdfWriter()
+                    for page_num in range(start_page, end_page):
+                        pdf_writer.add_page(pdf_reader.pages[page_num])
+                    chunk_buffer = io.BytesIO()
+                    pdf_writer.write(chunk_buffer)
+                    chunks.append(chunk_buffer.getvalue())
+                    chunk_buffer.close()
+                pdf_file.close()
+                
+                # Process chunks in parallel
+                async def process_chunk(chunk_content):
+                    response = await self.async_client.responses.create(
+                        model="gpt-4o-mini",
+                        input=[
+                            {"role": "system", "content": system_prompt},
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "input_text",
+                                        "text": user_prompt
+                                    },
+                                    {
+                                        "type": "input_file", 
+                                        "filename": "financial_document",
+                                        "file_data": f"data:{file_mime_type};base64,{base64.b64encode(chunk_content).decode('utf-8')}"
+                                    }
+                                ]
+                            }
+                        ],
+                        temperature=0.1,
+                    )
+                    return response.output_text
+                
+                # Run all chunks in parallel
+                tasks = [process_chunk(chunk) for chunk in chunks]
+                responses = await asyncio.gather(*tasks, return_exceptions=True)
+                
+                # Parse all responses and combine transactions
+                all_transactions = []
+                for i, content in enumerate(responses):
+                    if isinstance(content, Exception):
+                        print(f"Error processing chunk {i+1}: {str(content)}")
+                        continue
+                    
+                    # Try to extract JSON from the response
+                    if "```json" in content:
+                        content = content.split("```json")[1].split("```")[0].strip()
+                    elif "```" in content:
+                        content = content.split("```")[1].split("```")[0].strip()
+                    
+                    # Parse JSON
+                    try:
+                        data = json.loads(content)
+                        if isinstance(data, dict) and "transactions" in data:
+                            transactions = data["transactions"]
+                        elif isinstance(data, list):
+                            transactions = data
+                        elif isinstance(data, dict):
+                            transactions = next((v for v in data.values() if isinstance(v, list)), [])
+                        else:
+                            transactions = []
+                    except json.JSONDecodeError:
+                        import re
+                        json_match = re.search(r'\[.*\]', content, re.DOTALL)
+                        if json_match:
+                            transactions = json.loads(json_match.group())
+                        else:
+                            print(f"Failed to parse JSON from chunk {i+1}: {content}")
+                            continue
+                    
+                    all_transactions.extend(transactions)
+                
+                # Transform to match database schema
+                structured_transactions = []
+                for tx in all_transactions:
+                    structured_tx = self._transform_transaction(tx, user_upload_id)
+                    if structured_tx:
+                        structured_transactions.append(structured_tx)
+                
+                return structured_transactions
+            
+            # For non-PDF files, use the original synchronous approach
             response = self.client.responses.create(
                 model="gpt-4o-mini",  # or "gpt-4-turbo-preview" for better structured extraction
                 input=[
@@ -478,6 +591,7 @@ class FinancialTextExtractor:
         - transaction_code: TEXT
         - category: TEXT
         - currency: TEXT NOT NULL DEFAULT 'MYR'
+        - is_subscription: BOOLEAN NOT NULL DEFAULT FALSE
         """
         try:
             # Parse date
@@ -554,6 +668,8 @@ class FinancialTextExtractor:
                 category = None
             
             currency = transaction.get('currency', 'MYR').strip().upper() or 'MYR'
+
+            is_subscription = transaction.get('is_subscription', False)
             
             return {
                 'user_upload_id': user_upload_id or '',
@@ -570,6 +686,7 @@ class FinancialTextExtractor:
                 'transaction_code': transaction_code,
                 'category': category,
                 'currency': currency,
+                'is_subscription': is_subscription,
             }
         except Exception as e:
             # Log error but don't fail completely
@@ -614,7 +731,7 @@ class FinancialTextExtractor:
 
 
 # Convenience function for easy usage
-def extract_banking_transactions(
+async def extract_banking_transactions(
     file_path: str | Path | None = None,
     file_content: bytes | None = None,
     file_mime_type: str | None = None,
@@ -633,7 +750,7 @@ def extract_banking_transactions(
         List of transaction dictionaries matching the statement_banking_transaction schema
     """
     extractor = FinancialTextExtractor()
-    return extractor.extract_from_file(
+    return await extractor.extract_from_file(
         file_path=file_path,
         file_content=file_content,
         file_mime_type=file_mime_type,

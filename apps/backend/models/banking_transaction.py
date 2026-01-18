@@ -56,6 +56,7 @@ class BankingTransaction(BaseModel, table=True):
     description: str
     merchant_name: Optional[str] = None
     amount: Decimal = Field(sa_column=Column(Numeric(15, 2)))
+    is_subscription: bool = Field(default=False)
     transaction_type: str  # Values: 'debit' or 'credit'
     balance: Optional[Decimal] = Field(default=None, sa_column=Column(Numeric(15, 2)))
     reference_number: Optional[str] = None

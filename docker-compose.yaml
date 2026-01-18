@@ -8,40 +8,40 @@ services:
   #     - claire
   #   restart: always
 
-  # api:
-  #   build:
-  #     context: ./apps/backend
-  #   ports:
-  #     - 8000:8000
-  #   environment:
-  #     - BACKEND_PROJECT_NAME=${BACKEND_PROJECT_NAME}
-  #     - BACKEND_API_V1_STR=${BACKEND_API_V1_STR}
-  #     - BACKEND_API_VERSION=${BACKEND_API_VERSION}
-  #     - BACKEND_API_ENVIRONMENT=${BACKEND_API_ENVIRONMENT}
-  #     - BACKEND_API_DESCRIPTION=${BACKEND_API_DESCRIPTION}
-  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
-  #     - POSTGRES_USER=${POSTGRES_USER}
-  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-  #     - POSTGRES_HOST=${POSTGRES_HOST}
-  #     - POSTGRES_PORT=${POSTGRES_PORT}
-  #     - POSTGRES_DB=${POSTGRES_DB}
-  #     - POSTGRES_POOL_SIZE=${POSTGRES_POOL_SIZE}
-  #     - POSTGRES_MAX_OVERFLOW=${POSTGRES_MAX_OVERFLOW}
-  #     - MINIO_ENDPOINT=${MINIO_ENDPOINT}
-  #     - MINIO_SECURE=${MINIO_SECURE}
-  #     - MINIO_ROOT_USER=${MINIO_ROOT_USER}
-  #     - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
-  #     - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
-  #     - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
-  #     - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
-  #     - LOG_LEVEL=${LOG_LEVEL}
-  #   depends_on:
-  #     - db
-  #     - minio
-  #     - createbuckets
-  #   networks:
-  #     - claire
-  #   restart: always
+  api:
+    build:
+      context: ./apps/backend
+    ports:
+      - 8000:8000
+    environment:
+      - BACKEND_PROJECT_NAME=${BACKEND_PROJECT_NAME}
+      - BACKEND_API_V1_STR=${BACKEND_API_V1_STR}
+      - BACKEND_API_VERSION=${BACKEND_API_VERSION}
+      - BACKEND_API_ENVIRONMENT=${BACKEND_API_ENVIRONMENT}
+      - BACKEND_API_DESCRIPTION=${BACKEND_API_DESCRIPTION}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_PORT=${POSTGRES_PORT}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_POOL_SIZE=${POSTGRES_POOL_SIZE}
+      - POSTGRES_MAX_OVERFLOW=${POSTGRES_MAX_OVERFLOW}
+      - MINIO_ENDPOINT=${MINIO_ENDPOINT}
+      - MINIO_SECURE=${MINIO_SECURE}
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME}
+      - LOG_LEVEL=${LOG_LEVEL}
+    depends_on:
+      - db
+      - minio
+      - createbuckets
+    networks:
+      - claire
+    restart: always
 
   db:
     build:

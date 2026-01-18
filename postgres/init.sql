@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS statement_banking_transaction (
     description TEXT NOT NULL,
     merchant_name TEXT,
     amount DECIMAL(15, 2) NOT NULL,
+    is_subscription BOOLEAN NOT NULL DEFAULT FALSE,
     transaction_type TEXT NOT NULL CHECK(transaction_type IN ('debit', 'credit')), -- 'credit' means money coming in, 'debit' means money going out
     balance DECIMAL(15, 2),
     reference_number TEXT,
