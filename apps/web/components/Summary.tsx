@@ -26,7 +26,9 @@ import {
   Wallet,
   RefreshCw,
   Loader2,
+  ArrowRight,
 } from "lucide-react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -240,6 +242,13 @@ export function Summary({ onClose, onViewDetails, className, scope }: SummaryPro
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold">Financial Summary</CardTitle>
+          <Link 
+            href="/advice" 
+            className="flex items-center gap-1 text-sm text-primary underline hover:opacity-80 transition-opacity"
+          >
+            Chat with your finance
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </CardHeader>
 

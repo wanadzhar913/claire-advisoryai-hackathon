@@ -284,6 +284,9 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
             <p className="text-xs text-muted-foreground">
               Please wait while we process your document
             </p>
+						<p className="text-sm text-muted-foreground/70 pt-2">
+                This may take several minutes (2-3 minutes) depending on your financial statement to process
+            </p>
           </div>
         </div>
       )}
