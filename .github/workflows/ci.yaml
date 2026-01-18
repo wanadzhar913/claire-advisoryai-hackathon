@@ -39,6 +39,8 @@ jobs:
         aws ecr create-repository --repository-name claire-api --region ${{ env.AWS_REGION }}
         aws ecr describe-repositories --repository-names claire-db --region ${{ env.AWS_REGION }} || \
         aws ecr create-repository --repository-name claire-db --region ${{ env.AWS_REGION }}
+        aws ecr describe-repositories --repository-names claire-web --region ${{ env.AWS_REGION }} || \
+        aws ecr create-repository --repository-name claire-web --region ${{ env.AWS_REGION }}
 
     - name: Build and push API image
       run: |
@@ -53,6 +55,13 @@ jobs:
         docker tag ${{ steps.aws-account.outputs.ecr_registry }}/claire-db:${{ github.sha }} ${{ steps.aws-account.outputs.ecr_registry }}/claire-db:latest
         docker push ${{ steps.aws-account.outputs.ecr_registry }}/claire-db:${{ github.sha }}
         docker push ${{ steps.aws-account.outputs.ecr_registry }}/claire-db:latest
+
+    - name: Build and push Web image
+      run: |
+        docker build -t ${{ steps.aws-account.outputs.ecr_registry }}/claire-web:${{ github.sha }} ./apps/web
+        docker tag ${{ steps.aws-account.outputs.ecr_registry }}/claire-web:${{ github.sha }} ${{ steps.aws-account.outputs.ecr_registry }}/claire-web:latest
+        docker push ${{ steps.aws-account.outputs.ecr_registry }}/claire-web:${{ github.sha }}
+        docker push ${{ steps.aws-account.outputs.ecr_registry }}/claire-web:latest
 
     - name: Setup SSH
       run: |

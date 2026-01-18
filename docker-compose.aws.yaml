@@ -1,4 +1,18 @@
 services:
+  web:
+    image: ${ECR_REGISTRY}/claire-web:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+      - NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+    depends_on:
+      - api
+    networks:
+      - claire
+    restart: always
+
   api:
     image: ${ECR_REGISTRY}/claire-api:latest
     ports:

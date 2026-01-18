@@ -1,5 +1,9 @@
 # environment variables
 .env
+.env.production
+
+# ssh keys
+*.pem
 
 # python
 __pycache__/
