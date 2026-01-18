@@ -98,7 +98,7 @@ export function Subscriptions({ showFlaggedReview = true, className, scope }: Su
     const mapped: Subscription[] = (aggregated || []).map((s) => ({
       id: s.merchant_key,
       name: s.display_name,
-      logo: "/logos/af_logo.png",
+      logo: "",
       amount: Number(s.average_monthly_amount ?? 0),
       frequency: "monthly",
       confidence: s.confidence_avg && s.confidence_avg >= 0.8 ? "high" : s.confidence_avg && s.confidence_avg >= 0.5 ? "medium" : "low",

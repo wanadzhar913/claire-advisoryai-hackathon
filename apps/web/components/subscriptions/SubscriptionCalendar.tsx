@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import type { Subscription } from "./types"
 import type { BankingTransaction } from "./api-types"
 import { formatCurrency } from "./utils"
+import { getLogoForSubscription, getInitials } from "./logoMap"
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const
 
@@ -225,33 +226,48 @@ export function SubscriptionCalendar({
 
               {/* Predicted renewals (logos) */}
               {hasPredicted && (
-                <div className="absolute bottom-1 flex items-center gap-0.5">
-                  {logoSubs.map((sub) => (
-                    <Avatar
-                      key={sub.id}
-                      className="h-4 w-4 border border-border bg-transparent"
-                    >
-                      <AvatarImage
-                        src={sub.logo}
-                        alt={`${sub.name} logo`}
-                        className="object-cover"
-                      />
-                      <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
-                        {sub.name.slice(0, 1).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                  ))}
+                <div className="absolute bottom-0.5 flex items-center gap-0.5">
+                  {logoSubs.map((sub) => {
+                    const resolvedLogo = sub.logo || getLogoForSubscription(sub.name)
+                    return (
+                      <Avatar
+                        key={sub.id}
+                        className="h-8 w-8 border border-border bg-transparent"
+                      >
+                        {resolvedLogo && (
+                          <AvatarImage
+                            src={resolvedLogo}
+                            alt={`${sub.name} logo`}
+                            className="object-cover"
+                          />
+                        )}
+                        <AvatarFallback className="bg-muted text-muted-foreground text-[10px] font-semibold">
+                          {getInitials(sub.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    )
+                  })}
                   {overflow > 0 && (
-                    <div className="h-4 min-w-4 rounded-full border border-border bg-background px-1 text-[9px] leading-4 text-muted-foreground">
+                    <div className="h-6 min-w-6 rounded-full border border-border bg-background px-1 text-[9px] leading-6 text-muted-foreground flex items-center justify-center">
                       +{overflow}
                     </div>
                   )}
                 </div>
               )}
 
-              {/* Actual charge marker */}
+              {/* Subscription indicator - dotted violet sphere */}
+              {hasPredicted && (
+                <div 
+                  className="absolute top-1 right-1 h-2 w-2 rounded-full bg-violet-500"
+                  aria-label={`${predicted.length} subscription${predicted.length > 1 ? 's' : ''}`}
+                />
+              )}
+
               {hasCharged && (
-                <div className="absolute top-1 right-1 h-1.5 w-1.5 rounded-full bg-primary/70" />
+                <div className={cn(
+                  "absolute right-1 h-1.5 w-1.5 rounded-full bg-primary/70",
+                  hasPredicted ? "top-4" : "top-1"
+                )} />
               )}
             </div>
           )
