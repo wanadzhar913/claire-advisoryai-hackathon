@@ -61,7 +61,6 @@ jobs:
         docker build \
           --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}" \
           --build-arg NEXT_PUBLIC_API_BASE_URL="${{ secrets.NEXT_PUBLIC_API_BASE_URL }}" \
-          --build-arg CLERK_SECRET_KEY="${{ secrets.CLERK_SECRET_KEY }}" \
           -t ${{ steps.aws-account.outputs.ecr_registry }}/claire-web:${{ github.sha }} ./apps/web
         docker tag ${{ steps.aws-account.outputs.ecr_registry }}/claire-web:${{ github.sha }} ${{ steps.aws-account.outputs.ecr_registry }}/claire-web:latest
         docker push ${{ steps.aws-account.outputs.ecr_registry }}/claire-web:${{ github.sha }}

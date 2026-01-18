@@ -22,17 +22,21 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # Accept build-time arguments for environment variables
-# These are required for the build to succeed
+# NEXT_PUBLIC_* variables are needed at build time for client-side code
 ARG NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 ARG NEXT_PUBLIC_API_BASE_URL=""
-ARG CLERK_SECRET_KEY
 
 # Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 ENV NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
-ENV CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+
+# Validate that required build arguments are set
+RUN if [ -z "$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" ]; then \
+      echo "ERROR: NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is required for build" && \
+      exit 1; \
+    fi
 
 # Build the application
 RUN npm run build
