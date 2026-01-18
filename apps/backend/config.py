@@ -31,7 +31,7 @@ class AppSettings(BaseSettings):
 
     # OpenAI settings
     OPENAI_API_KEY: str
-    DEFAULT_LLM_MODEL: str = "gpt-5-mini"
+    DEFAULT_LLM_MODEL: str = "gpt-4.1"
     DEFAULT_LLM_TEMPERATURE: float = 0.1
     MAX_TOKENS: int = 16384
     MAX_LLM_CALL_RETRIES: int = 3

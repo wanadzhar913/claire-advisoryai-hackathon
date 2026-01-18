@@ -137,6 +137,8 @@ export function SankeyDiagram({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const wasProcessingRef = useRef<boolean | null>(null);
+
   const isProcessing = useCallback(() => {
     if (!scope || filesLoading) return false;
     if (scope.type !== "statement") return false;
@@ -183,6 +185,18 @@ export function SankeyDiagram({
       fetchSankeyData();
     }
   }, [isLoaded, fetchSankeyData]);
+
+  const processing = isProcessing();
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+
+    const wasProcessing = wasProcessingRef.current;
+    if (wasProcessing === true && !processing) {
+      fetchSankeyData();
+    }
+    wasProcessingRef.current = processing;
+  }, [processing, isLoaded, isSignedIn, fetchSankeyData]);
 
   // Use fetched data or prop data or sample data
   const data = fetchedData || propData || SAMPLE_DATA;
