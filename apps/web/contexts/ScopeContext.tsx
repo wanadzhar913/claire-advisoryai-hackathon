@@ -78,6 +78,19 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
     await fetchFiles();
   }, [fetchFiles]);
 
+  // Computed values
+  const hasFiles = files.length > 0;
+  const latestFile = useMemo(() => {
+    if (files.length === 0) return null;
+    // Files are already sorted by created_at desc from API
+    return files[0];
+  }, [files]);
+
+  const hasProcessingFiles = useMemo(
+    () => files.some((file) => file.status === "processing"),
+    [files],
+  );
+
   // Fetch files on mount and when auth changes
   useEffect(() => {
     if (isLoaded) {
@@ -95,19 +108,6 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
 
     return () => clearInterval(intervalId);
   }, [isLoaded, isSignedIn, hasProcessingFiles, fetchFiles]);
-
-  // Computed values
-  const hasFiles = files.length > 0;
-  const latestFile = useMemo(() => {
-    if (files.length === 0) return null;
-    // Files are already sorted by created_at desc from API
-    return files[0];
-  }, [files]);
-
-  const hasProcessingFiles = useMemo(
-    () => files.some((file) => file.status === "processing"),
-    [files],
-  );
 
   // Set default scope when files load
   useEffect(() => {
