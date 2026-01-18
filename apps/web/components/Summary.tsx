@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useApi } from "@/hooks/use-api"
+import type { Scope } from "@/types/scope"
 
 // Icon mapping for dynamic icon rendering
 const iconMap: Record<string, React.ElementType> = {
@@ -89,22 +90,41 @@ interface SummaryProps {
   onClose?: () => void
   onViewDetails?: () => void
   className?: string
+  scope?: Scope
 }
 
-export function Summary({ onClose, onViewDetails, className }: SummaryProps) {
+// Helper function to build query string from scope
+function buildScopeQuery(scope?: Scope): string {
+  if (!scope) return ""
+  
+  const params = new URLSearchParams()
+  if (scope.type === "statement") {
+    params.set("file_id", scope.fileId)
+  } else if (scope.type === "range") {
+    params.set("start_date", scope.startDate)
+    params.set("end_date", scope.endDate)
+  }
+  
+  const queryString = params.toString()
+  return queryString ? `?${queryString}` : ""
+}
+
+export function Summary({ onClose, onViewDetails, className, scope }: SummaryProps) {
   const { get, post, isSignedIn, isLoaded } = useApi()
   const [data, setData] = React.useState<InsightsResponse | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [refreshing, setRefreshing] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
 
-  // Fetch insights on mount
+  // Fetch insights on mount or when scope changes
   const fetchInsights = React.useCallback(async () => {
     if (!isSignedIn) return
     
     try {
       setError(null)
-      const response = await get<InsightsResponse>("/api/v1/insights")
+      setLoading(true)
+      const queryString = buildScopeQuery(scope)
+      const response = await get<InsightsResponse>(`/api/v1/insights${queryString}`)
       setData(response)
     } catch (err) {
       console.error("Failed to fetch insights:", err)
@@ -112,7 +132,7 @@ export function Summary({ onClose, onViewDetails, className }: SummaryProps) {
     } finally {
       setLoading(false)
     }
-  }, [get, isSignedIn])
+  }, [get, isSignedIn, scope])
 
   // Trigger new analysis
   const handleRefresh = async () => {

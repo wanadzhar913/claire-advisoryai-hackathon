@@ -25,13 +25,15 @@ import { ActionMenu } from "./ActionMenu"
 import { MobileSubscriptionCard } from "./MobileSubscriptionCard"
 import { SubscriptionDetailsDialog } from "./SubscriptionDetailsDialog"
 import { FlaggedItemsReview } from "./FlaggedItemsReview"
+import type { Scope } from "@/types/scope"
 
 interface SubscriptionsProps {
   showFlaggedReview?: boolean
   className?: string
+  scope?: Scope
 }
 
-export function Subscriptions({ showFlaggedReview = true, className }: SubscriptionsProps) {
+export function Subscriptions({ showFlaggedReview = true, className, scope }: SubscriptionsProps) {
   const [subscriptions, setSubscriptions] = useState(mockSubscriptions)
   const [reviewedFlaggedIds, setReviewedFlaggedIds] = useState<Set<string>>(new Set())
   const [currentPage, setCurrentPage] = useState(0)
@@ -39,6 +41,9 @@ export function Subscriptions({ showFlaggedReview = true, className }: Subscript
     open: boolean
     subscription: Subscription | null
   }>({ open: false, subscription: null })
+
+  // TODO: In the future, fetch subscriptions from API based on scope
+  // For now, using mock data
 
   const itemsPerPage = 3
   const totalPages = Math.max(1, Math.ceil(subscriptions.length / itemsPerPage))
