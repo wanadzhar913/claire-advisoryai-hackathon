@@ -274,7 +274,7 @@ export function Summary({
       <CardContent className="space-y-5 pt-2">
         {isProcessing && (
           <div className="flex items-center gap-2 rounded-md border border-amber-200/50 bg-amber-50/50 px-3 py-2 text-sm text-amber-700 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             <span>Processing statement… insights will appear shortly.</span>
           </div>
         )}
