@@ -27,9 +27,19 @@ class AppSettings(BaseSettings):
     BACKEND_API_VERSION: str = "0.1.0"
     BACKEND_API_ENVIRONMENT: Literal["development", "production"] = "development"
     BACKEND_API_DESCRIPTION: str = "Claire API"
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1", "t", "yes")
 
     # OpenAI settings
     OPENAI_API_KEY: str
+    DEFAULT_LLM_MODEL: str = "gpt-4o-mini"
+    DEFAULT_LLM_TEMPERATURE: float = 0.1
+    MAX_TOKENS: int = 16384
+    MAX_LLM_CALL_RETRIES: int = 3
+
+    # Long term memory Configuration
+    LONG_TERM_MEMORY_MODEL: str = os.getenv("LONG_TERM_MEMORY_MODEL", "gpt-5-nano")
+    LONG_TERM_MEMORY_EMBEDDER_MODEL: str = os.getenv("LONG_TERM_MEMORY_EMBEDDER_MODEL", "text-embedding-3-small")
+    LONG_TERM_MEMORY_COLLECTION_NAME: str = os.getenv("LONG_TERM_MEMORY_COLLECTION_NAME", "longterm_memory")
 
     # Database settings
     POSTGRES_HOST: str
@@ -39,6 +49,7 @@ class AppSettings(BaseSettings):
     POSTGRES_DB: str
     POSTGRES_POOL_SIZE: int = 10
     POSTGRES_MAX_OVERFLOW: int = 5
+    CHECKPOINT_TABLES: List[str] = ["checkpoint_blobs", "checkpoint_writes", "checkpoints"]
 
     # Minio settings
     MINIO_ENDPOINT: str
@@ -51,6 +62,8 @@ class AppSettings(BaseSettings):
 
     # Logging
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = 'INFO'
+    LOG_FORMAT: str = "console"
+    LOG_DIR: Path = Path("/app/backend/logs")
 
     # Clerk Authentication settings
     CLERK_SECRET_KEY: str

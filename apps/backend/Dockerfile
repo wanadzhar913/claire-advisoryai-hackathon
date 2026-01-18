@@ -20,6 +20,9 @@ RUN uv venv && uv sync
 # Copy the rest of the application code
 COPY . .
 
+# Create log directory
+RUN mkdir -p /app/backend/logs
+
 # Set PYTHONPATH to include /app so backend package can be imported
 ENV PYTHONPATH=/app
 

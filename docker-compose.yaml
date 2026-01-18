@@ -42,6 +42,9 @@ services:
       - db
       - minio
       - createbuckets
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     networks:
       - claire
     restart: always

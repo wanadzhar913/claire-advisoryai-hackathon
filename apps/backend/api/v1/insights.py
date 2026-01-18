@@ -53,7 +53,7 @@ async def get_insights(
     current_user: User = Depends(get_current_user),
     insight_type: Optional[str] = Query(
         default=None, 
-        regex="^(pattern|alert|recommendation)$",
+        pattern="^(pattern|alert|recommendation)$",
         description="Filter by insight type"
     ),
     file_id: Optional[str] = Query(default=None, description="Filter by file ID"),
