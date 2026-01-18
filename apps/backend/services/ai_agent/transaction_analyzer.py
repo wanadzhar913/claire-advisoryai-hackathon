@@ -134,7 +134,7 @@ class TransactionAnalyzerAgent:
     def __init__(self):
         """Initialize the transaction analyzer agent."""
         self.llm = ChatOpenAI(
-            model="gpt-5-mini",
+            model="gpt-4.1",
             temperature=0.3,
             api_key=settings.OPENAI_API_KEY,
         )

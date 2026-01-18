@@ -65,6 +65,18 @@ class LLMRegistry:
             ),
         },
         {
+            "name": "gpt-4.1",
+            "llm": ChatOpenAI(
+                model="gpt-4.1",
+                temperature=settings.DEFAULT_LLM_TEMPERATURE,
+                api_key=settings.OPENAI_API_KEY,
+                max_tokens=settings.MAX_TOKENS,
+                top_p=0.95,
+                presence_penalty=0.1,
+                frequency_penalty=0.1,
+            ),
+        },
+        {
             "name": "gpt-4o",
             "llm": ChatOpenAI(
                 model="gpt-4o",
