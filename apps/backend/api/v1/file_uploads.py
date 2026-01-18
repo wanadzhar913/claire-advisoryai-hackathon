@@ -1,6 +1,7 @@
 """File upload endpoints for handling user file uploads and processing."""
 
 import uuid
+import asyncio
 from datetime import date, datetime as dt
 from decimal import Decimal
 from io import BytesIO
@@ -22,6 +23,68 @@ from backend.services.ai_agent.transaction_analyzer import transaction_analyzer
 
 router = APIRouter()
 minio_connector = get_minio_connector()
+
+
+async def _process_banking_statement(
+    *,
+    user_id: int,
+    file_id: str,
+    file_content: bytes,
+    file_mime_type: str,
+    file_name: str | None,
+) -> None:
+    """Background processing for banking statement extraction and analysis."""
+    try:
+        transactions_data = await extract_banking_transactions(
+            file_path=None,
+            file_content=file_content,
+            file_mime_type=file_mime_type,
+            user_upload_id=file_id,
+        )
+
+        banking_transactions = []
+        for idx, tx_data in enumerate(transactions_data):
+            tx_id = f"{file_id}_{idx}"
+            tx_date = dt.strptime(tx_data["transaction_date"], "%Y-%m-%d").date()
+
+            banking_tx = BankingTransaction(
+                id=tx_id,
+                user_id=user_id,
+                file_id=file_id,
+                transaction_date=tx_date,
+                transaction_year=tx_data["transaction_year"],
+                transaction_month=tx_data["transaction_month"],
+                transaction_day=tx_data["transaction_day"],
+                description=tx_data["description"],
+                merchant_name=tx_data.get("merchant_name"),
+                amount=Decimal(str(tx_data["amount"])),
+                is_subscription=tx_data.get("is_subscription", False),
+                transaction_type=tx_data["transaction_type"],
+                balance=Decimal(str(tx_data["balance"])) if tx_data.get("balance") else None,
+                reference_number=tx_data.get("reference_number"),
+                transaction_code=tx_data.get("transaction_code"),
+                category=tx_data.get("category"),
+                currency=tx_data.get("currency", "MYR"),
+            )
+            banking_transactions.append(banking_tx)
+
+        if banking_transactions:
+            database_service.create_banking_transactions_bulk(banking_transactions)
+
+            try:
+                await asyncio.to_thread(
+                    transaction_analyzer.analyze,
+                    user_id=user_id,
+                    file_id=file_id,
+                    transactions=banking_transactions,
+                )
+            except Exception as analysis_error:
+                print(f"Error running AI analysis: {str(analysis_error)}")
+
+    except Exception as e:
+        print(
+            f"Error extracting transactions for {file_name or file_id}: {str(e)}"
+        )
 
 
 @router.post("/upload", tags=["File Uploads"])
@@ -58,7 +121,6 @@ async def upload_file(
             raise HTTPException(status_code=400, detail="No files provided")
 
         results = []
-        total_transactions_extracted = 0
 
         for file in files:
             if file.content_type != "application/pdf":
@@ -104,59 +166,17 @@ async def upload_file(
             )
             database_service.create_user_upload(user_upload)
 
-            # Extract transactions if it's a banking transaction statement
-            transaction_count = 0
+            # Extract transactions in the background for banking statements
             if statement_type == "banking_transaction":
-                try:
-                    transactions_data = await extract_banking_transactions(
-                        file_path=None,
+                asyncio.create_task(
+                    _process_banking_statement(
+                        user_id=user_id,
+                        file_id=file_id,
                         file_content=file_content,
                         file_mime_type=file_mime_type,
-                        user_upload_id=file_id
+                        file_name=file.filename,
                     )
-
-                    banking_transactions = []
-                    for idx, tx_data in enumerate(transactions_data):
-                        tx_id = f"{file_id}_{idx}"
-                        tx_date = dt.strptime(tx_data['transaction_date'], '%Y-%m-%d').date()
-
-                        banking_tx = BankingTransaction(
-                            id=tx_id,
-                            user_id=user_id,
-                            file_id=file_id,
-                            transaction_date=tx_date,
-                            transaction_year=tx_data['transaction_year'],
-                            transaction_month=tx_data['transaction_month'],
-                            transaction_day=tx_data['transaction_day'],
-                            description=tx_data['description'],
-                            merchant_name=tx_data.get('merchant_name'),
-                            amount=Decimal(str(tx_data['amount'])),
-                            is_subscription=tx_data.get('is_subscription', False),
-                            transaction_type=tx_data['transaction_type'],
-                            balance=Decimal(str(tx_data['balance'])) if tx_data.get('balance') else None,
-                            reference_number=tx_data.get('reference_number'),
-                            transaction_code=tx_data.get('transaction_code'),
-                            category=tx_data.get('category'),
-                            currency=tx_data.get('currency', 'MYR'),
-                        )
-                        banking_transactions.append(banking_tx)
-
-                    if banking_transactions:
-                        database_service.create_banking_transactions_bulk(banking_transactions)
-                        transaction_count = len(banking_transactions)
-                        total_transactions_extracted += transaction_count
-
-                        try:
-                            transaction_analyzer.analyze(
-                                user_id=user_id,
-                                file_id=file_id,
-                                transactions=banking_transactions,
-                            )
-                        except Exception as analysis_error:
-                            print(f"Error running AI analysis: {str(analysis_error)}")
-
-                except Exception as e:
-                    print(f"Error extracting transactions for {file.filename}: {str(e)}")
+                )
 
             results.append({
                 "file_id": file_id,
@@ -164,16 +184,15 @@ async def upload_file(
                 "file_size": file_size,
                 "file_url": upload_result.get("file_url", ""),
                 "statement_type": statement_type,
-                "transactions_extracted": transaction_count,
-                "insights_generated": transaction_count > 0,
+                "processing": statement_type == "banking_transaction",
             })
 
         return {
             "files": results,
             "count": len(results),
-            "transactions_extracted_total": total_transactions_extracted,
-            "insights_generated": total_transactions_extracted > 0,
-            "message": "Files uploaded and processed successfully",
+            "transactions_extracted_total": 0,
+            "insights_generated": False,
+            "message": "Files uploaded successfully. Processing will continue in the background.",
         }
         
     except SQLAlchemyError as e:
@@ -222,6 +241,19 @@ async def list_user_uploads(
                 "statement_type": upload.statement_type,
                 "expense_month": upload.expense_month,
                 "expense_year": upload.expense_year,
+                "status": (
+                    "processed"
+                    if upload.statement_type != "banking_transaction"
+                    else (
+                        "processed"
+                        if database_service.get_banking_transactions(
+                            user_id=user_id,
+                            file_id=upload.file_id,
+                            limit=1,
+                        )
+                        else "processing"
+                    )
+                ),
                 "created_at": upload.created_at.isoformat() if upload.created_at else None,
             }
             for upload in uploads

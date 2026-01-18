@@ -219,6 +219,12 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
     setError(null);
 
     try {
+      const token = await getToken();
+      const headers: HeadersInit = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
       // Backend expects a single month/year per upload (matches DB schema).
       // We upload each PDF individually and tag it with the correct month/year.
       const assigned = getAssignedMonthsForFiles(
@@ -228,39 +234,33 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
       );
       const filesOrderedOldestToNewest = [...files];
 
-      const uploadedNames: string[] = [];
-      for (let i = 0; i < filesOrderedOldestToNewest.length; i++) {
-        const token = await getToken();
-        const headers: HeadersInit = {};
-        if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
-        }
+      await Promise.all(
+        filesOrderedOldestToNewest.map(async (f, i) => {
+          const tag = assigned[i];
 
-        const f = filesOrderedOldestToNewest[i];
-        const tag = assigned[i];
+          const fd = new FormData();
+          fd.append("files", f);
 
-        const fd = new FormData();
-        fd.append("files", f);
+          const url = new URL(`${apiUrl}/api/v1/file-uploads/upload`);
+          url.searchParams.set("expense_month", String(tag.month));
+          url.searchParams.set("expense_year", String(tag.year));
 
-        const url = new URL(`${apiUrl}/api/v1/file-uploads/upload`);
-        url.searchParams.set("expense_month", String(tag.month));
-        url.searchParams.set("expense_year", String(tag.year));
+          const response = await fetch(url.toString(), {
+            method: "POST",
+            headers,
+            body: fd,
+          });
 
-        const response = await fetch(url.toString(), {
-          method: "POST",
-          headers,
-          body: fd,
-        });
+          if (!response.ok) {
+            const errorText = await response
+              .text()
+              .catch(() => "Unknown error");
+            throw new Error(errorText || "Upload failed");
+          }
+        }),
+      );
 
-        if (!response.ok) {
-          const errorText = await response.text().catch(() => "Unknown error");
-          throw new Error(errorText || "Upload failed");
-        }
-
-        uploadedNames.push(f.name);
-      }
-
-      onSuccess(uploadedNames);
+      onSuccess(filesOrderedOldestToNewest.map((f) => f.name));
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred",
@@ -284,8 +284,9 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
             <p className="text-xs text-muted-foreground">
               Please wait while we process your document
             </p>
-						<p className="text-sm text-muted-foreground/70 pt-2">
-                This may take several minutes (2-3 minutes) depending on your financial statement to process
+            <p className="text-sm text-muted-foreground/70 pt-2">
+              This may take several minutes (2-3 minutes) depending on your
+              financial statement to process
             </p>
           </div>
         </div>
