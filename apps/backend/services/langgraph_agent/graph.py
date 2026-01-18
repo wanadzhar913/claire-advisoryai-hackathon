@@ -73,17 +73,24 @@ class LangGraphAgent:
     async def _long_term_memory(self) -> AsyncMemory:
         """Initialize the long term memory."""
         if self.memory is None:
+            pgvector_config = {
+                "collection_name": settings.LONG_TERM_MEMORY_COLLECTION_NAME,
+                "dbname": settings.POSTGRES_DB,
+                "user": settings.POSTGRES_USER,
+                "password": settings.POSTGRES_PASSWORD,
+                "host": settings.POSTGRES_HOST,
+                "port": settings.POSTGRES_PORT,
+            }
+            if getattr(settings, "POSTGRES_SSLMODE", None):
+                # mem0 will ignore unknown keys if not supported by the provider
+                pgvector_config["sslmode"] = settings.POSTGRES_SSLMODE
+
             self.memory = await AsyncMemory.from_config(
                 config_dict={
                     "vector_store": {
                         "provider": "pgvector",
                         "config": {
-                            "collection_name": settings.LONG_TERM_MEMORY_COLLECTION_NAME,
-                            "dbname": settings.POSTGRES_DB,
-                            "user": settings.POSTGRES_USER,
-                            "password": settings.POSTGRES_PASSWORD,
-                            "host": settings.POSTGRES_HOST,
-                            "port": settings.POSTGRES_PORT,
+                            **pgvector_config,
                         },
                     },
                     "llm": {
@@ -112,6 +119,8 @@ class LangGraphAgent:
                     f"{quote_plus(settings.POSTGRES_USER)}:{quote_plus(settings.POSTGRES_PASSWORD)}"
                     f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
                 )
+                if getattr(settings, "POSTGRES_SSLMODE", None):
+                    connection_url += f"?sslmode={settings.POSTGRES_SSLMODE}"
 
                 self._connection_pool = AsyncConnectionPool(
                     connection_url,
