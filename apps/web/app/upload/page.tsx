@@ -20,6 +20,9 @@ export default function UploadPage() {
 
   return (
     <main className="min-h-screen w-full flex items-center justify-center p-4 bg-background">
+      <div className="absolute top-4 left-4 text-sm font-semibold tracking-wide text-foreground">
+        claire.
+      </div>
       <div className="w-full max-w-2xl mx-auto flex flex-col items-center transition-all duration-500 ease-in-out">
         {phase === "idle" ? (
           <div className="w-full flex justify-center animate-in fade-in zoom-in-95 duration-500">
