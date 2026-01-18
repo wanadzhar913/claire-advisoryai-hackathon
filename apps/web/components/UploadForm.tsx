@@ -296,7 +296,7 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
           <CardTitle className="text-xl font-semibold">File Upload</CardTitle>
         </div>
         <CardDescription>
-          Upload 23 months of consecutive financial statements (e.g., JanMar)
+          Upload 2-3 months of consecutive financial statements (e.g., JanMar)
           for better insights. Select the latest month in your upload batch so
           we can tag each PDF correctly.
         </CardDescription>
@@ -366,7 +366,7 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
                 );
                 const label = assigned
                   .map((x) => `${monthNames[x.month - 1]} ${x.year}`)
-                  .join("   ");
+                  .join(" - ");
                 return (
                   <span>
                     PDFs will be tagged as:{" "}
@@ -376,7 +376,7 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
               })()
             ) : (
               <span>
-                Select a month/year and well automatically tag 13 PDFs as
+                Select a month/year and we'll automatically tag 1-3 PDFs as
                 consecutive months (going backwards).
               </span>
             )}
@@ -417,7 +417,7 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
                 and drop
               </p>
               <p className="text-xs text-muted-foreground">
-                PDF (max 10MB each). Upload 23 files for consecutive months.
+                PDF (max 10MB each). Upload 2-3 files for consecutive months.
               </p>
             </div>
           </div>
