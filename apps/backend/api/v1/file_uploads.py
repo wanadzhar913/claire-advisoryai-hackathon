@@ -247,7 +247,7 @@ async def list_user_uploads(
                     if upload.statement_type != "banking_transaction"
                     else (
                         "processed"
-                        if database_service.get_banking_transactions(
+                        if database_service.filter_banking_transactions(
                             user_id=user_id,
                             file_id=upload.file_id,
                             limit=1,
