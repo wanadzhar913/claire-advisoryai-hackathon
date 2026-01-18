@@ -20,7 +20,7 @@ export default function UploadPage() {
 
   return (
     <main className="min-h-screen w-full flex items-center justify-center p-4 bg-background">
-      <div className="absolute top-4 left-4 text-sm font-semibold tracking-wide text-foreground">
+      <div className="absolute top-4 left-4 text-lg font-semibold tracking-wide text-foreground">
         claire.
       </div>
       <div className="w-full max-w-2xl mx-auto flex flex-col items-center transition-all duration-500 ease-in-out">
