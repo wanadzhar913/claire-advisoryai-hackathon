@@ -372,10 +372,11 @@ export function SankeyDiagram({
     if (loading) {
       return (
         <div
-          className="flex items-center justify-center"
+          className="flex flex-col items-center justify-center gap-2"
           style={{ height: dimensions.height }}
         >
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-xs text-muted-foreground">This may take a few minutes...</p>
         </div>
       );
     }
@@ -676,6 +677,9 @@ export function SankeyDiagram({
           <ArrowLeftRight className="w-4 h-4 text-muted-foreground" />
           <CardTitle className="text-lg font-semibold">Cash Flow</CardTitle>
         </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          This may take a few minutes...
+        </p>
       </CardHeader>
 
       <CardContent className="pt-2">

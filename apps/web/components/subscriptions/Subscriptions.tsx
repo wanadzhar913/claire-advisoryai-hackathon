@@ -211,6 +211,7 @@ export function Subscriptions({
                 <p className="text-sm text-muted-foreground">
                   Detecting subscriptions
                 </p>
+                <p className="text-xs text-muted-foreground">This may take a few minutes...</p>
               </div>
             ) : (
               <>

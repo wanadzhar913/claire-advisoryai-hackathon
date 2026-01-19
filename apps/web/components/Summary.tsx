@@ -207,6 +207,7 @@ export function Summary({
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-full" />
           </div>
+          <p className="text-xs text-muted-foreground">This may take a few minutes...</p>
         </CardContent>
       </Card>
     );
@@ -283,6 +284,9 @@ export function Summary({
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          This may take a few minutes...
+        </p>
       </CardHeader>
 
       <CardContent className="space-y-5 pt-2">

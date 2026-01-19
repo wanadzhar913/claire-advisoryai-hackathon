@@ -244,6 +244,9 @@ export function EarnExtra({ className }: EarnExtraProps) {
                     ? "Pick a plan to get started"
                     : "Generate a plan based on your spending"}
             </p>
+            {(loading || generating) && (
+              <p className="text-xs text-muted-foreground">This may take a few minutes...</p>
+            )}
           </div>
           {activePlan ? (
             <Badge variant="outline" className="shrink-0">
