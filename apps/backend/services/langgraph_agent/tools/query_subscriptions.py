@@ -23,6 +23,10 @@ class QuerySubscriptionsInput(BaseModel):
         default=1,
         description="Filter by user ID (default: 1)"
     )
+    file_id: Optional[str] = Field(
+        default=None,
+        description="Filter by file ID (user upload file ID)"
+    )
     transaction_year: Optional[int] = Field(
         default=None,
         description="Filter by transaction year (e.g., 2024)"
@@ -42,6 +46,7 @@ class QuerySubscriptionsInput(BaseModel):
 
 async def query_subscriptions_aggregated(
     user_id: Optional[int] = 1,
+    file_id: Optional[str] = None,
     transaction_year: Optional[int] = None,
     limit: Optional[int] = None,
     offset: int = 0,
@@ -70,6 +75,7 @@ async def query_subscriptions_aggregated(
         transactions = await asyncio.to_thread(
             database_service.filter_banking_transactions,
             user_id=user_id,
+            file_id=file_id,
             is_subscription=True,
             transaction_type='debit',  # Only debit transactions are subscriptions
             transaction_year=transaction_year,

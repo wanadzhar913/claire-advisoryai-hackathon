@@ -20,6 +20,7 @@ from backend.services.db.postgres_connector import database_service
 from backend.services.object_store.minio_connector import get_minio_connector
 from backend.services.document_parser.financial_text_extractor import extract_banking_transactions
 from backend.services.ai_agent.transaction_analyzer import transaction_analyzer
+from backend.services.demo.demo_loader import load_demo_transactions
 
 router = APIRouter()
 minio_connector = get_minio_connector()
@@ -199,6 +200,134 @@ async def upload_file(
         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+
+@router.post("/demo", tags=["File Uploads"])
+async def upload_demo_data(
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Seed demo transactions for the current user (no file upload required)."""
+    user_id = current_user.id
+
+    try:
+        existing_uploads = database_service.get_user_uploads(
+            user_id=user_id,
+            limit=50,
+            offset=0,
+            order_by="created_at",
+            order_desc=True,
+        )
+        existing_demo = next(
+            (u for u in existing_uploads if u.file_name == "demo_data.json"),
+            None,
+        )
+
+        if existing_demo:
+            existing_transactions = database_service.filter_banking_transactions(
+                user_id=user_id,
+                file_id=existing_demo.file_id,
+                limit=1,
+            )
+            existing_insights = database_service.get_user_insights(
+                user_id=user_id,
+                file_id=existing_demo.file_id,
+                limit=1,
+            )
+            demo_transactions = []
+            if not existing_transactions:
+                demo_transactions, _ = load_demo_transactions(
+                    user_id, existing_demo.file_id
+                )
+                if demo_transactions:
+                    database_service.create_banking_transactions_bulk(
+                        demo_transactions
+                    )
+
+            if demo_transactions or not existing_insights:
+                async def _run_demo_analysis() -> None:
+                    try:
+                        await asyncio.to_thread(
+                            transaction_analyzer.analyze,
+                            user_id=user_id,
+                            file_id=existing_demo.file_id,
+                            transactions=demo_transactions or None,
+                        )
+                    except Exception as analysis_error:
+                        print(f"Error running demo analysis: {str(analysis_error)}")
+                asyncio.create_task(_run_demo_analysis())
+
+            return {
+                "files": [
+                    {
+                        "file_id": existing_demo.file_id,
+                        "file_name": existing_demo.file_name,
+                        "file_size": existing_demo.file_size,
+                        "file_url": existing_demo.file_url,
+                        "statement_type": existing_demo.statement_type,
+                        "processing": False,
+                    }
+                ],
+                "count": 1,
+                "transactions_extracted_total": 0,
+                "insights_generated": False,
+                "message": "Demo data already available.",
+            }
+
+        file_id = str(uuid.uuid4())
+        demo_transactions, metadata = load_demo_transactions(user_id, file_id)
+        latest_date = metadata["latest_date"]
+
+        user_upload = UserUpload(
+            file_id=file_id,
+            user_id=user_id,
+            file_name="demo_data.json",
+            file_type="json",
+            file_size=metadata["file_size"],
+            file_url="",
+            file_mime_type="application/json",
+            file_extension="json",
+            statement_type="banking_transaction",
+            expense_month=latest_date.month,
+            expense_year=latest_date.year,
+        )
+        database_service.create_user_upload(user_upload)
+
+        if demo_transactions:
+            database_service.create_banking_transactions_bulk(demo_transactions)
+
+            async def _run_demo_analysis() -> None:
+                try:
+                    await asyncio.to_thread(
+                        transaction_analyzer.analyze,
+                        user_id=user_id,
+                        file_id=file_id,
+                        transactions=demo_transactions,
+                    )
+                except Exception as analysis_error:
+                    print(f"Error running demo analysis: {str(analysis_error)}")
+
+            asyncio.create_task(_run_demo_analysis())
+
+        return {
+            "files": [
+                {
+                    "file_id": file_id,
+                    "file_name": "demo_data.json",
+                    "file_size": metadata["file_size"],
+                    "file_url": "",
+                    "statement_type": "banking_transaction",
+                    "processing": True,
+                }
+            ],
+            "count": 1,
+            "transactions_extracted_total": len(demo_transactions),
+            "insights_generated": False,
+            "message": "Demo data loaded successfully.",
+        }
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Demo load failed: {str(e)}")
 
 
 @router.get("", tags=["File Uploads"])

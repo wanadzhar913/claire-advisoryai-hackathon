@@ -24,6 +24,10 @@ class GraphState(BaseModel):
         default=None,
         description="Authenticated application user id (used to scope DB-backed tools).",
     )
+    file_id: Optional[str] = Field(
+        default=None,
+        description="Optional file ID to scope transaction tools (demo mode).",
+    )
     last_sankey: Any = Field(
         default=None,
         description="Last Sankey diagram payload produced by tools (stored for UI usage; not meant to be shown verbatim).",

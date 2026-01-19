@@ -5,6 +5,7 @@ streaming chat, message history management, and chat history clearing.
 """
 
 import json
+import asyncio
 from typing import List
 
 from fastapi import (
@@ -29,6 +30,22 @@ from backend.services.db.postgres_connector import database_service
 
 router = APIRouter()
 agent = LangGraphAgent()
+
+
+async def _get_demo_file_id(user_id: int) -> str | None:
+    try:
+        uploads = await asyncio.to_thread(
+            database_service.get_user_uploads,
+            user_id=user_id,
+            limit=50,
+            offset=0,
+            order_by="created_at",
+            order_desc=True,
+        )
+        demo = next((u for u in uploads if u.file_name == "demo_data.json"), None)
+        return demo.file_id if demo else None
+    except Exception:
+        return None
 
 
 # from fastapi.security import (
@@ -134,7 +151,15 @@ async def chat(
             message_count=len(chat_request.messages),
         )
 
-        result = await agent.get_response(chat_request.messages, session.id, user_id=session.user_id)
+        demo_mode = request.headers.get("x-demo-mode") == "true"
+        demo_file_id = await _get_demo_file_id(session.user_id) if demo_mode else None
+
+        result = await agent.get_response(
+            chat_request.messages,
+            session.id,
+            user_id=session.user_id,
+            file_id=demo_file_id,
+        )
 
         logger.info("chat_request_processed", session_id=session.id)
 
@@ -181,8 +206,14 @@ async def chat_stream(
             """
             try:
                 full_response = ""
+                demo_mode = request.headers.get("x-demo-mode") == "true"
+                demo_file_id = await _get_demo_file_id(session.user_id) if demo_mode else None
+
                 async for chunk in agent.get_stream_response(
-                    chat_request.messages, session.id, user_id=session.user_id
+                    chat_request.messages,
+                    session.id,
+                    user_id=session.user_id,
+                    file_id=demo_file_id,
                 ):
                     full_response += chunk
                     response = StreamResponse(content=chunk, done=False)

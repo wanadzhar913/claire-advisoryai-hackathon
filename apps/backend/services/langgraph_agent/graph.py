@@ -230,7 +230,18 @@ class LangGraphAgent:
         if len(goals_context) > 1200:
             goals_context = goals_context[:1200] + "\n…(truncated)"
 
-        SYSTEM_PROMPT = load_system_prompt(long_term_memory=long_term_memory, goals_context=goals_context)
+        demo_context = ""
+        if state.file_id:
+            demo_context = (
+                "Demo mode is active. Use transactions for file_id: "
+                f"{state.file_id} (demo_data.json)."
+            )
+
+        SYSTEM_PROMPT = load_system_prompt(
+            long_term_memory=long_term_memory,
+            goals_context=goals_context,
+            demo_context=demo_context,
+        )
 
         # Prepare messages with system prompt
         messages = prepare_messages(state.messages, current_llm, SYSTEM_PROMPT)
@@ -285,6 +296,12 @@ class LangGraphAgent:
                 "query_user_goals",
             }:
                 tool_args["user_id"] = int(state.user_id)
+
+            if state.file_id is not None and tool_call.get("name") in {
+                "query_subscriptions_aggregated",
+                "query_transactions_sankey",
+            }:
+                tool_args.setdefault("file_id", state.file_id)
 
             tool_result = await self.tools_by_name[tool_call["name"]].ainvoke(tool_args)
             outputs.append(
@@ -346,6 +363,7 @@ class LangGraphAgent:
         messages: list[Message],
         session_id: str,
         user_id: Optional[int] = None,
+        file_id: Optional[str] = None,
     ) -> list[dict]:
         """Get a response from the LLM.
 
@@ -378,6 +396,7 @@ class LangGraphAgent:
                     "messages": dump_messages(messages),
                     "long_term_memory": relevant_memory,
                     "user_id": user_id,
+                    "file_id": file_id,
                 },
                 config=config,
             )
@@ -393,7 +412,11 @@ class LangGraphAgent:
             pass
 
     async def get_stream_response(
-        self, messages: list[Message], session_id: str, user_id: Optional[int] = None
+        self,
+        messages: list[Message],
+        session_id: str,
+        user_id: Optional[int] = None,
+        file_id: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
         """Get a stream response from the LLM.
 
@@ -432,6 +455,7 @@ class LangGraphAgent:
                     "messages": dump_messages(messages),
                     "long_term_memory": relevant_memory,
                     "user_id": user_id,
+                    "file_id": file_id,
                 },
                 config,
                 stream_mode="messages",

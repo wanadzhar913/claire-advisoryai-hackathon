@@ -38,6 +38,9 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
   const { getToken } = useAuth();
   const [files, setFiles] = React.useState<File[]>([]);
   const [uploading, setUploading] = React.useState(false);
+  const [uploadMode, setUploadMode] = React.useState<"upload" | "demo">(
+    "upload",
+  );
   const [error, setError] = React.useState<string | null>(null);
   const [dragging, setDragging] = React.useState(false);
   const [rangeStartMonth, setRangeStartMonth] = React.useState<number | "">("");
@@ -215,6 +218,7 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
       return;
     }
 
+    setUploadMode("upload");
     setUploading(true);
     setError(null);
 
@@ -260,7 +264,46 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
         }),
       );
 
+      document.cookie = "demo_mode=; Max-Age=0; path=/";
       onSuccess(filesOrderedOldestToNewest.map((f) => f.name));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "An unexpected error occurred",
+      );
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDemo = async () => {
+    if (!apiUrl) {
+      setError("API URL is not configured.");
+      return;
+    }
+
+    setUploadMode("demo");
+    setUploading(true);
+    setError(null);
+
+    try {
+      const token = await getToken();
+      const headers: HeadersInit = {};
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${apiUrl}/api/v1/file-uploads/demo`, {
+        method: "POST",
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => "Unknown error");
+        throw new Error(errorText || "Demo load failed");
+      }
+
+      onSuccess(["demo_data.json"]);
+      document.cookie = "demo_mode=1; path=/";
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An unexpected error occurred",
@@ -280,7 +323,11 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
             <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-primary rounded-full animate-spin" />
           </div>
           <div className="text-center space-y-1">
-            <p className="text-sm font-medium">Uploading your file...</p>
+            <p className="text-sm font-medium">
+              {uploadMode === "demo"
+                ? "Loading demo data..."
+                : "Uploading your file..."}
+            </p>
             <p className="text-xs text-muted-foreground">
               Please wait while we process your document
             </p>
@@ -544,6 +591,9 @@ export function UploadForm({ apiUrl, onSuccess }: UploadFormProps) {
       </CardContent>
 
       <CardFooter className="flex justify-end gap-3 pt-2">
+        <Button variant="outline" onClick={handleDemo} disabled={uploading}>
+          Use demo data
+        </Button>
         <Button
           variant="outline"
           onClick={clearFile}
