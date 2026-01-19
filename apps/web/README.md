@@ -1,24 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) project for Claire - a financial AI agent assistant.
+
+## Prerequisites
+
+You need a Clerk account and API keys:
+1. Go to [Clerk Dashboard](https://dashboard.clerk.com)
+2. Create a new application
+3. Copy your publishable key and secret key
+
+## Environment Variables
+
+Create a `.env.local` file in this directory with:
+
+```bash
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
 
 ## Getting Started
 
-First, run the development server:
+### Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Docker Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**Option 1: Using docker-compose (recommended)**
+
+From the project root:
+```bash
+# Make sure you have a .env file with required variables
+docker compose build web
+```
+
+**Option 2: Direct docker build**
+
+```bash
+docker build \
+  --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..." \
+  --build-arg NEXT_PUBLIC_API_BASE_URL="http://localhost:8000" \
+  -t claire-web \
+  .
+```
+
+**Important**: `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is required at build time for Next.js to inline it into the client bundle.
 
 ## Learn More
 

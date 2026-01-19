@@ -3,6 +3,10 @@ name: Deploy to AWS EC2
 on:
   push:
     branches: [ "master" ]
+    paths-ignore:
+      - '**.md'
+      - 'assets/**'
+      - '.gitignore'
 
 env:
   AWS_REGION: ap-southeast-5

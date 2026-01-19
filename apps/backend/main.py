@@ -11,8 +11,8 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 app = FastAPI(
     title="Claire API",
-    description="API for the Claire project",
-    version="0.1.0",
+    description=settings.BACKEND_API_DESCRIPTION,
+    version=settings.BACKEND_API_VERSION,
 )
 
 # Trust all proxies (Railway/Vercel/etc handling SSL termination)
