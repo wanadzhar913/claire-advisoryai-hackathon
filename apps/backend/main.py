@@ -18,11 +18,12 @@ app = FastAPI(
 # Trust all proxies (Railway/Vercel/etc handling SSL termination)
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
 
-allowed_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "https://claire-snowy.vercel.app",  # Production Vercel frontend
-]
+# allowed_origins = [
+#     "http://localhost:3000",
+#     "http://127.0.0.1:3000",
+#     "https://claire-snowy.vercel.app",  # Production Vercel frontend
+# ]
+allowed_origins = ["*"]
 
 if settings.BACKEND_API_ENVIRONMENT == "production":
     pass
