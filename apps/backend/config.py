@@ -61,6 +61,20 @@ class AppSettings(BaseSettings):
     MINIO_ACCESS_KEY: str
     MINIO_BUCKET_NAME: str
 
+    @field_validator('MINIO_SECURE', mode='before')
+    def validate_minio_secure(cls, v) -> int:
+        if isinstance(v, str):
+            # Handle boolean strings
+            if v.lower() in ('true', '1', 't', 'yes'):
+                return 1
+            elif v.lower() in ('false', '0', 'f', 'no'):
+                return 0
+            else:
+                return int(v)  # Try to convert to int
+        elif isinstance(v, bool):
+            return 1 if v else 0
+        return int(v)
+
     # Logging
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = 'INFO'
     LOG_FORMAT: str = "console"
