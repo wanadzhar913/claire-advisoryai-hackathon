@@ -183,6 +183,7 @@ mkdir -p ~/claire
 cd ~/claire
 
 # Create .env file (you'll need to copy your local .env content here)
+# Be sure to change `minio` to `claire-minio` and `db` to `claire-db`
 nano .env
 # Paste all your environment variables from your local .env file
 # Make sure POSTGRES_HOST=db (not localhost)
