@@ -95,13 +95,13 @@ jobs:
           aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${ECR_REGISTRY}
           
           # Pull latest images
-          ECR_REGISTRY=${ECR_REGISTRY} docker compose -f docker-compose.aws.yaml --env-file .env pull
+          ECR_REGISTRY=${ECR_REGISTRY} docker-compose -f docker-compose.aws.yaml --env-file .env pull
           
           # Stop old containers
-          ECR_REGISTRY=${ECR_REGISTRY} docker compose -f docker-compose.aws.yaml --env-file .env down
+          ECR_REGISTRY=${ECR_REGISTRY} docker-compose -f docker-compose.aws.yaml --env-file .env down
           
           # Start new containers
-          ECR_REGISTRY=${ECR_REGISTRY} docker compose -f docker-compose.aws.yaml --env-file .env up -d
+          ECR_REGISTRY=${ECR_REGISTRY} docker-compose -f docker-compose.aws.yaml --env-file .env up -d
           
           # Clean up old images
           docker image prune -f
