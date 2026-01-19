@@ -5,9 +5,10 @@ sleep 5
 
 NEW_USER="localuser"
 POLICY_NAME="localuser-policy"
+MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
 
 # Set up alias 'local' so mc can talk to Minio server
-mc alias set local http://minio:9000 "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"
+mc alias set local http://${MINIO_ENDPOINT} "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"
 
 # Create a bucket (ignored if it doesn't exist)
 mc mb --ignore-existing local/"${MINIO_BUCKET_NAME}"
