@@ -15,11 +15,12 @@ Personal finance data is fragmented across bank transactions and uploaded docume
 
 Claire provides:
 
-- 🌐 A web dashboard to explore transactions, subscriptions, goals, and cash flow visualizations.
-![web-dashboard](/assets/claire-2-dashboard-for-transaction-flows.png)
-- A backend API that ingests transactions/uploads, stores them, and produces insights.
+- 🌐 A **dashboard** to explore transactions, subscriptions, goals, and cash flow visualizations.
+![dashboard](/assets/claire-2-dashboard-for-transaction-flows.png)
+- A backend API that **ingests transactions/uploads**, stores them, and produces insights.
 ![user-upload-interface](/assets/claire-1-interface-for-uploading-statements.png)
-- An AI-powered chat/insights layer that can summarize financial activity and suggest actions. Talk to your financial statements and plan.
+- An **AI-powered chat/insights** layer that can summarize financial activity and suggest actions. Talk to your financial statements and plan.
+![ai-agent-financial-advisor](/assets/claire-4-ai-agent-financial-advisor.png)
 
 ## How It Works (High Level) 🤓
 
@@ -44,7 +45,7 @@ Claire provides:
 - **CI/CD:** GitHub Actions
 - **Deployment Platform:** AWS EC2
 
-## Setup Instructions
+## Setup Instructions 🛠️
 
 You can find steps to set up the project **locally** below. For hosting on AWS, you can refer to the [AWS Setup document](/AWS_SETUP.md).
 
@@ -67,7 +68,7 @@ cd claire
 
 This project uses a root `.env` file (loaded by Docker Compose and by the backend settings). Create a `.env` in the repository root.
 
-## Environment variables
+## Environment variables 🥀
 
 Set these variables in your root `.env` before running locally.
 
@@ -154,7 +155,7 @@ CLERK_SECRET_KEY=sk_
 CLERK_PUBLISHABLE_KEY=pk_
 ```
 
-## Step-by-step guide: run the project locally
+## Step-by-step guide: run the project locally 🪜
 
 ### Option A (recommended): Run everything with Docker Compose
 
@@ -185,7 +186,7 @@ docker compose down
 docker compose down -v
 ```
 
-### Run a single service outside Docker
+### Option B: Run a single service outside Docker
 
 If you'd like to work on/contribute code to a particular service, comment out the relevant service(s) in `docker-compose.yaml` and run the rest via Docker. For example, to run the backend locally while Postgres + MinIO remain in Docker:
 
