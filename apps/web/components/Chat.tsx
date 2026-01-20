@@ -4,6 +4,9 @@ import * as React from "react";
 import { useChat } from "@ai-sdk/react";
 import type { UIMessage } from "ai";
 import { Loader2, Send, Square } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -17,6 +20,8 @@ import {
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 
+import "highlight.js/styles/github-dark.css";
+
 function messageText(message: UIMessage): string {
   return (message.parts || [])
     .filter(
@@ -27,8 +32,8 @@ function messageText(message: UIMessage): string {
 }
 
 export function Chat({
-  title = "Financial advice",
-  description = "Ask anything about your spending, subscriptions, goals, or cash flow.",
+  title = "Financial Advice",
+  description = "Ask our AI Agent anything about your spending, subscriptions, goals, or cash flow.",
   quickActions = [
     "💸 What are my biggest expenses this month?",
     "🧾 Do I have any subscriptions I should cancel?",
@@ -108,9 +113,50 @@ export function Chat({
                       : "bg-muted text-foreground border border-border",
                   )}
                 >
-                  <div className="whitespace-pre-wrap wrap-break-word">
-                    {text}
-                  </div>
+                  {isUser ? (
+                    <div className="whitespace-pre-wrap wrap-break-word">
+                      {text}
+                    </div>
+                  ) : (
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        rehypePlugins={[rehypeHighlight]}
+                        components={{
+                          // Customize code blocks
+                          code: ({ className, children, ...props }) => {
+                            const match = /language-(\w+)/.exec(className || "");
+                            return match ? (
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            ) : (
+                              <code
+                                className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono"
+                                {...props}
+                              >
+                                {children}
+                              </code>
+                            );
+                          },
+                          // Make links open in new tab
+                          a: ({ href, children, ...props }) => (
+                            <a
+                              href={href}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary underline"
+                              {...props}
+                            >
+                              {children}
+                            </a>
+                          ),
+                        }}
+                      >
+                        {text}
+                      </ReactMarkdown>
+                    </div>
+                  )}
                 </div>
               </div>
             );
